@@ -76,27 +76,45 @@ WITH
         FROM
             leasing_request_c lr
             LEFT JOIN user u ON lr.account_manager_c = u.user_id
-    )
+    ),
+    billing_data_output AS (
+        SELECT
+            lrq.contract_number_c AS ssp_number,
+            lrq.lsp_c AS lsp,
+            lrq.lsr_c AS lsr,
+            lrq.name AS end_customer,
+            lrq.account_number_c AS account_number,
+            lrq.land_or_maritime_c AS land_aero_maritime,
+            i.wholesale_or_retail_c AS invoice_wholesale_or_retail,
+            i.invoice_number,
+            i.name AS invoice_name,
+            i.wholesale_credit_rebill_c AS invoice_wholesale_credit_rebill,
+            i.billing_source_c AS invoice_billing_source,
+            lrq.lease_service_type_c AS service_type,
+            lrq.start_date_of_current_lease,
+            lrq.end_date_of_current_lease,
+            i.bill_period_start_c AS invoice_bill_period_start,
+            i.bill_period_end_c AS invoice_bill_period_end,
+            i.billing_status_c AS invoice_billing_status,
+            i.billed_amount_c AS invoice_billed_amount,
+            i.created_date AS invoice_created_date
+        FROM
+            leasing_request_user lrq
+            JOIN invoice_c i ON lrq.id = i.leasing_request_c
+    ),
+     billing_invoice_number_pivot AS (
 SELECT
-    lrq.contract_number_c AS ssp_number,
-    lrq.lsp_c,
-    lrq.lsr_c,
-    lrq.name AS end_customer,
-    lrq.account_number_c,
-    lrq.land_or_maritime_c,
-    i.wholesale_or_retail_c,
-    i.invoice_number,
-    i.name AS invoice_name,
-    i.wholesale_credit_rebill_c,
-    i.billing_source_c,
-    lrq.lease_service_type_c,
-    lrq.start_date_of_current_lease,
-    lrq.end_date_of_current_lease,
-    i.bill_period_start_c AS invoice_bill_period_start,
-    i.bill_period_end_c AS invoice_bill_period_end,
-    i.billing_status_c AS invoice_billing_status,
-    i.billed_amount_c AS invoice_billed_amount,
-    i.created_date AS invoice_created_date
+    ssp_number,
+    retail AS retail_invoice_id,
+    wholesale AS wholesale_invoice_id
 FROM
-    leasing_request_user lrq
-    JOIN invoice_c i ON lrq.id = i.leasing_request_c
+    (
+        SELECT
+            *
+        FROM
+            billing_data_output
+    ) PIVOT(
+        STRING_AGG(invoice_number, "; ")
+        FOR invoice_wholesale_or_retail IN ('Retail', 'Wholesale')
+    )
+       )
