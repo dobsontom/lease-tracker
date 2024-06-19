@@ -270,7 +270,7 @@ WITH
             leasing_request_user lrq
             JOIN invoice_c i ON lrq.zcode_id = i.leasing_request_c
     ),
-    billing_invoice_number_pivot AS (
+    retail_and_wholesale_invoice_no_concat AS (
         SELECT
             ssp_number,
             retail AS retail_invoice_id,
@@ -288,8 +288,8 @@ WITH
     ),
     final_output AS (
         SELECT
-            binp.retail_invoice_id,
-            binp.wholesale_invoice_id,
+            rwinv.retail_invoice_id,
+            rwinv.wholesale_invoice_id,
             lru.*,
             CASE
                 WHEN lease_update_status = 'Commercials completed' THEN 1
@@ -307,7 +307,7 @@ WITH
             CURRENT_DATE AS current_month
         FROM
             leasing_request_user lru
-            LEFT JOIN billing_invoice_number_pivot binp ON lru.ssp_number = binp.ssp_number
+            LEFT JOIN retail_and_wholesale_invoice_no_concat rwinv ON lru.ssp_number = rwinv.ssp_number
         ORDER BY
             ssp_number ASC,
             lease_update_status_code ASC
@@ -318,7 +318,7 @@ WITH
 SELECT
     *,
     CASE
-        WHEN lease_update_status = 'Lease Cancelled' THEN 1
+        WHEN lease_update_status != 'Lease Cancelled' THEN 1
         ELSE 0
     END AS raw_data_tab_ind,
     CASE
@@ -397,7 +397,7 @@ SELECT
             'Billing Not Required'
         )
         AND start_date_of_current_lease <= current_month
-        AND CONTAINS_SUBSTR(ssp_number, 'Free')
+        AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
         AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
         ELSE 0
     END AS gx_segovia_tab_ind,
@@ -413,9 +413,7 @@ SELECT
             'Billing Not Required'
         )
         AND start_date_of_current_lease < current_month
-        AND end_date_of_current_lease < current_month
-        AND CONTAINS_SUBSTR(ssp_number, 'Free')
-        AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+        AND end_date_of_current_lease < current_month THEN 1
         ELSE 0
     END AS call_off_rtl_tab_ind,
     CASE
@@ -430,9 +428,7 @@ SELECT
             'Billing Not Required'
         )
         AND start_date_of_current_lease < current_month
-        AND end_date_of_current_lease < current_month
-        AND CONTAINS_SUBSTR(ssp_number, 'Free')
-        AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+        AND end_date_of_current_lease < current_month THEN 1
         ELSE 0
     END AS call_off_whs_external_tab_ind
 FROM
