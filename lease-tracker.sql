@@ -93,7 +93,13 @@ CREATE OR REPLACE TABLE
                     gx_email_alert_recursion_stop_c,
                     host_radio_3_c,
                     initial_request_date_c,
-                    internal_external_c AS internal_external,
+                    CASE
+                        WHEN lsp_c IN (
+                            'Inmarsat Government Inc.',
+                            'Inmarsat Solutions (Canada) Inc.'
+                        ) THEN 'Internal'
+                        ELSE 'External'
+                    END AS internal_external,
                     -- internal_sale_profit_center,
                     is_this_application_subject_to_c,
                     is_deleted,
