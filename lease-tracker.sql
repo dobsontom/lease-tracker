@@ -295,12 +295,17 @@ CREATE OR REPLACE TABLE
                 FROM
                     (
                         SELECT
-                            *
+                            ssp_number,
+                            invoice_wholesale_or_retail,
+                            STRING_AGG(invoice_number, '; ') AS invoice_number
                         FROM
                             billing_data
+                        GROUP BY
+                            ssp_number,
+                            invoice_wholesale_or_retail
                     ) PIVOT(
-                        STRING_AGG(invoice_number, '; ')
-                        FOR invoice_wholesale_or_retail IN ('Retail', 'Wholesale')
+                        MAX(invoice_number)
+                        FOR invoice_wholesale_or_retail IN ('Retail' AS retail, 'Wholesale' AS wholesale)
                     )
             ),
             -- Final output creates the data format that populates the various
