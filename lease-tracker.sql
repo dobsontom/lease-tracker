@@ -40,6 +40,7 @@ CREATE OR REPLACE TABLE
             -- Fields that are commented out are selected from Salesforce in
             -- the original workflow, but are not readily available in the
             -- leasing_request_c GCP table.
+            -- IFNULL()s ensure that final flags are applied correctly.
             leasing_request AS (
                 SELECT
                     account_manager_c,
@@ -108,7 +109,7 @@ CREATE OR REPLACE TABLE
                     lease_service_type_c AS service_type,
                     lease_start_time_c,
                     lease_type_c,
-                    lease_update_status_c AS lease_update_status,
+                    IFNULL(lease_update_status_c, '') AS lease_update_status,
                     leasing_cc_emails_c,
                     lsp_c AS lsp,
                     lspa_contract_no_c,
@@ -131,7 +132,7 @@ CREATE OR REPLACE TABLE
                     retail_bill_interval_c AS retail_bill_interval,
                     retail_bill_interval_comments_c,
                     retail_billing_entered_c,
-                    retail_billing_status_c,
+                    IFNULL(retail_billing_status_c, '') AS retail_billing_status_c,
                     -- retail_consumed_amount_c,
                     -- retail_consumed_amount_per_c,
                     retail_contract_value_c AS retail_contract_value,
@@ -140,7 +141,7 @@ CREATE OR REPLACE TABLE
                     retail_pricing_comments_c AS retail_pricing_comments,
                     return_bandwidth_k_hz_c,
                     return_data_rates_kbps_c,
-                    revenue_recognition_c AS revenue_recognition_basis,
+                    IFNULL(revenue_recognition_c, '') AS revenue_recognition_basis,
                     satellite_c,
                     secondary_les_sas_c,
                     send_lrf_to_ops_c,
@@ -163,7 +164,7 @@ CREATE OR REPLACE TABLE
                     wholesale_billing_comments_c,
                     wholesale_billing_engine_c,
                     wholesale_billing_entered_c,
-                    wholesale_billing_status_c,
+                    IFNULL(wholesale_billing_status_c, '') AS wholesale_billing_status_c,
                     wholesale_contract_value_c AS wholesale_contract_value,
                     wholesale_monthly_minimum_charge_c,
                     wholesale_or_retail_c AS wholease_or_retail_formula_c,
@@ -277,7 +278,7 @@ CREATE OR REPLACE TABLE
                     i.created_date AS invoice_created_date
                 FROM
                     leasing_request_user lru
-                    JOIN invoice i ON lru.id = i.leasing_request_c
+                    INNER JOIN invoice i ON lru.id = i.leasing_request_c
             ),
             -- Pivot and concatenation performed on retail and wholesale invoice
             -- numbers to get a single value for each SSP number, as per the
@@ -341,7 +342,7 @@ CREATE OR REPLACE TABLE
             CASE
                 WHEN lease_update_status != 'Lease Cancelled' THEN 1
                 ELSE 0
-            END AS raw_data_tab_ind,
+            END AS raw_data_flag,
             CASE
                 WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
                 AND internal_external = 'External'
@@ -357,7 +358,7 @@ CREATE OR REPLACE TABLE
                 AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
                 AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
                 ELSE 0
-            END AS whs_external_tab_ind,
+            END AS whs_external_flag,
             CASE
                 WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
                 AND internal_external = 'External'
@@ -373,14 +374,14 @@ CREATE OR REPLACE TABLE
                 AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
                 AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
                 ELSE 0
-            END AS gx_wholesale_external_tab_ind,
+            END AS gx_wholesale_external_flag,
             CASE
                 WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
                 AND internal_external = 'Internal'
                 AND lsp = 'Inmarsat Solutions (Canada) Inc.'
                 AND revenue_recognition_basis != 'Flex'
                 AND lease_update_status != 'Lease Cancelled'
-                AND wholesale_billing_status_c NOT IN (
+                AND retail_billing_status_c NOT IN (
                     'Billed',
                     'Billed - Manually',
                     'Billed - SV',
@@ -389,7 +390,7 @@ CREATE OR REPLACE TABLE
                 AND start_date_of_current_lease <= current_month
                 AND NOT CONTAINS_SUBSTR(ssp_number, 'Free') THEN 1
                 ELSE 0
-            END AS rtl_tab_ind,
+            END AS rtl_flag,
             CASE
                 WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
                 AND lsp = 'Inmarsat Government Inc.'
@@ -405,7 +406,7 @@ CREATE OR REPLACE TABLE
                 AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
                 AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
                 ELSE 0
-            END AS segovia_tab_ind,
+            END AS segovia_flag,
             CASE
                 WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
                 AND lsp = 'Inmarsat Government Inc.'
@@ -421,7 +422,7 @@ CREATE OR REPLACE TABLE
                 AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
                 AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
                 ELSE 0
-            END AS gx_segovia_tab_ind,
+            END AS gx_segovia_flag,
             CASE
                 WHEN CONTAINS_SUBSTR(call_off_lease, 'Call Off')
                 AND lsp = 'Inmarsat Solutions (Canada) Inc.'
@@ -433,10 +434,10 @@ CREATE OR REPLACE TABLE
                     'Billed - SV',
                     'Billing Not Required'
                 )
-                AND start_date_of_current_lease < current_month
+                AND start_date_of_current_lease <= current_month
                 AND end_date_of_current_lease < current_month THEN 1
                 ELSE 0
-            END AS call_off_rtl_tab_ind,
+            END AS call_off_rtl_flag,
             CASE
                 WHEN CONTAINS_SUBSTR(call_off_lease, 'Call Off')
                 AND lsp != 'Inmarsat Solutions (Canada) Inc.'
@@ -448,10 +449,10 @@ CREATE OR REPLACE TABLE
                     'Billed - SV',
                     'Billing Not Required'
                 )
-                AND start_date_of_current_lease < current_month
+                AND start_date_of_current_lease <= current_month
                 AND end_date_of_current_lease < current_month THEN 1
                 ELSE 0
-            END AS call_off_whs_external_tab_ind
+            END AS call_off_whs_external_flag
         FROM
             final_output
     );
