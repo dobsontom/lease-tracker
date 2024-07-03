@@ -1,7 +1,7 @@
 CREATE OR REPLACE TABLE
     inm-iar-data-warehouse-dev.lease_tracker.lease_tracker AS (
         WITH
-            invoice_c AS (
+            invoice AS (
                 SELECT
                     id,
                     is_deleted,
@@ -22,20 +22,15 @@ CREATE OR REPLACE TABLE
                     leasing_request_c,
                     wholesale_credit_rebill_c,
                     wholesale_or_retail_c,
-                    IFNULL(
+                    COALESCE(
                         invoice_number_c,
-                        (
-                            IFNULL(external_invoice_id_c, internal_invoice_id_c)
-                        )
+                        external_invoice_id_c,
+                        internal_invoice_id_c
                     ) AS invoice_number,
-                    IFNULL(
+                    COALESCE(
                         billing_status_c,
-                        (
-                            IFNULL(
-                                external_billing_status_c,
-                                internal_billing_status_c
-                            )
-                        )
+                        external_billing_status_c,
+                        internal_billing_status_c
                     ) AS billing_status
                 FROM
                     inm-iar-data-warehouse-dev.sdp_salesforce_src.invoice_c
@@ -45,8 +40,9 @@ CREATE OR REPLACE TABLE
             -- Fields that are commented out are selected from Salesforce in
             -- the original workflow, but are not readily available in the
             -- leasing_request_c GCP table.
-            leasing_request_c AS (
+            leasing_request AS (
                 SELECT
+                    account_manager_c,
                     account_number_c,
                     account_period_of_first_invoice_yyyymm_c,
                     approval_document_c,
@@ -92,6 +88,7 @@ CREATE OR REPLACE TABLE
                     forward_data_rates_kbps_c,
                     gx_email_alert_recursion_stop_c,
                     host_radio_3_c,
+                    id,
                     initial_request_date_c,
                     CASE
                         WHEN lsp_c IN (
@@ -229,8 +226,6 @@ CREATE OR REPLACE TABLE
                             LEFT(CAST(lease_end_time_c AS STRING), 12)
                         ) AS DATETIME
                     ) AS end_date_of_current_lease,
-                    account_manager_c AS zcode_account_manager,
-                    id AS zcode_id,
                     CASE
                         WHEN CONTAINS_SUBSTR(price_plan_c, 'Take or Pay')
                         OR CONTAINS_SUBSTR(lease_type_c, 'Flex') THEN 'Call Off Lease - Please refer to Call Off Tracker'
@@ -253,8 +248,8 @@ CREATE OR REPLACE TABLE
                 SELECT
                     *
                 FROM
-                    leasing_request_c lr
-                    LEFT JOIN user u ON lr.zcode_account_manager = u.user_id
+                    leasing_request lr
+                    LEFT JOIN user u ON lr.account_manager_c = u.user_id
             ),
             -- Billing data is the first and least processed output of the original
             -- workflow. In needed, this may need to be used to create a separate table
@@ -282,7 +277,7 @@ CREATE OR REPLACE TABLE
                     i.created_date AS invoice_created_date
                 FROM
                     leasing_request_user lru
-                    JOIN invoice_c i ON lru.zcode_id = i.leasing_request_c
+                    JOIN invoice i ON lru.id = i.leasing_request_c
             ),
             -- Pivot and concatenation performed on retail and wholesale invoice
             -- numbers to get a single value for each SSP number, as per the
