@@ -37,10 +37,9 @@ CREATE OR REPLACE TABLE
                 WHERE
                     is_deleted = FALSE
             ),
-            -- Fields that are commented out are selected from Salesforce in
-            -- the original workflow, but are not readily available in the
-            -- leasing_request_c GCP table.
-            -- IFNULL()s ensure that final flags are applied correctly.
+            -- IFNULL()s ensure that final flags are applied correctly,
+            -- as null NOT IN ('value') evaluates to FALSE, whereas we
+            -- want it to evaluate to TRUE.
             leasing_request AS (
                 SELECT
                     account_manager_c,
@@ -59,23 +58,17 @@ CREATE OR REPLACE TABLE
                     channel_weeks_charge_c,
                     channel_weeks_trust_comm_l_tac_c,
                     commercials_confirmed_c,
-                    -- company_id_c,
-                    -- consumed_amount_c,
-                    -- contract_daily_rate_c,
                     contract_duration_c,
                     contract_number_c AS ssp_number,
                     contract_progress_c,
                     contract_progress_comments_c,
                     contract_sent_to_lsp_c,
                     contract_signed_by_lsp_c,
-                    -- contract_sla_c,
                     contracts_acknowledgement_of_approval_do_c conus_discount_trustcomm_l_tac_c,
-                    -- count_c,
                     created_date,
                     credit_check_comments_c,
                     credit_limit_approved_c,
                     credit_rejected_c,
-                    -- credit_sla_c,
                     customer_name_c,
                     disaster_recovery_charge_c,
                     disaster_recovery_with_spectrum_c,
@@ -84,7 +77,6 @@ CREATE OR REPLACE TABLE
                     due_date_c,
                     end_user_organisation_c,
                     escalation_reason_c,
-                    -- external_sale_profit_center_c,
                     forward_bandwidth_k_hz_c,
                     forward_data_rates_kbps_c,
                     gx_email_alert_recursion_stop_c,
@@ -98,7 +90,6 @@ CREATE OR REPLACE TABLE
                         ) THEN 'Internal'
                         ELSE 'External'
                     END AS internal_external,
-                    -- internal_sale_profit_center,
                     is_this_application_subject_to_c,
                     is_deleted,
                     isol_gm_c,
@@ -114,7 +105,6 @@ CREATE OR REPLACE TABLE
                     lsp_c AS lsp,
                     lspa_contract_no_c,
                     lsr_c AS lsr,
-                    -- material_code_c,
                     name AS end_customer,
                     number_of_beams_c,
                     other_technical_details_required_c,
@@ -123,20 +113,15 @@ CREATE OR REPLACE TABLE
                     pre_sales_required_c,
                     price_plan_c,
                     pricing_acknowledgement_of_approval_docu_c,
-                    -- pricing_sla_c,
                     primary_les_sas_c,
                     project_id_c,
                     project_name_c,
                     record_type_id,
-                    -- retail_account_codes_c,
                     retail_bill_interval_c AS retail_bill_interval,
                     retail_bill_interval_comments_c,
                     retail_billing_entered_c,
                     IFNULL(retail_billing_status_c, '') AS retail_billing_status_c,
-                    -- retail_consumed_amount_c,
-                    -- retail_consumed_amount_per_c,
                     retail_contract_value_c AS retail_contract_value,
-                    -- retail_margin_c,
                     retail_periodic_payment_amount_c AS retail_periodic_payment_amount,
                     retail_pricing_comments_c AS retail_pricing_comments,
                     return_bandwidth_k_hz_c,
@@ -151,14 +136,11 @@ CREATE OR REPLACE TABLE
                     spot_beam_equivalent_c,
                     spot_beam_equivalent_4_c,
                     status_changed_date_c,
-                    -- status_report_c,
                     system_modstamp,
-                    -- technical_bd_sla_c,
                     term_discount_c,
                     total_value_of_the_order_c,
                     trust_comm_weeks_c,
                     type_of_beam_c,
-                    -- wholesale_account_code_c,
                     wholesale_bill_interval_c AS wholesale_bill_interval,
                     wholesale_bill_interval_comments_c,
                     wholesale_billing_comments_c,
@@ -171,18 +153,12 @@ CREATE OR REPLACE TABLE
                     wholesale_periodic_payment_amount_c AS wholesale_periodic_payment_amount,
                     wholesale_pricing_comments_c AS wholesale_pricing_comments,
                     billing_completed_c,
-                    -- contract_days_time_difference_c,
-                    -- contract_no_of_days_c,
-                    -- contract_date_difference_c,
                     disaster_recovery_frequency_reservation_c,
                     forward_bandwidth_mhz_c,
                     forward_data_rates_mbps_c,
-                    -- isol_gm_formula_c,
                     reserved_capacity_c,
-                    -- retail_consumed_amount_left_c,
                     return_bandwidth_mhz_c,
                     return_data_rates_mbps_c,
-                    -- wholesale_consumed_amount_left_c,
                     optional_renewal_years_pricing_the_same_c,
                     billing_interval_c AS standard_billing_interval_c,
                     year_10_c,
@@ -195,17 +171,10 @@ CREATE OR REPLACE TABLE
                     year_7_c,
                     year_8_c,
                     year_9_c,
-                    -- retail_contract_daily_value_c,
-                    -- wholesale_contract_daily_value_c,
-                    -- approval_doc_status_empty_to_value_c,
                     approval_document_status_date_capture_c,
                     approvl_doc_status_date_capture_empty_c,
-                    -- completed_in_billing_sla_c,
-                    -- lease_status_solution_to_pricing_timedif_c,
                     lease_update_status_solution_engineering_c,
                     lease_update_status_pricing_c,
-                    -- pg_bd_sla_c,
-                    -- retail_billing_completed_in_sla_c,
                     type_of_beam_equivalent_c,
                     uid_unbilled_amount_retail_c AS uid_unbilled_amount_retail_formula_c,
                     uid_unbilled_amount_wholesale_c AS uid_unbilled_amount_wholesale_new_c,
@@ -232,6 +201,38 @@ CREATE OR REPLACE TABLE
                         OR CONTAINS_SUBSTR(lease_type_c, 'Flex') THEN 'Call Off Lease - Please refer to Call Off Tracker'
                         ELSE ''
                     END AS call_off_lease
+                    -- The following fields are imported from Salesforce in the original workflow,
+                    -- but are not available from the leasing request_c GCP table. 
+                    -- company_id_c,
+                    -- consumed_amount_c,
+                    -- contract_daily_rate_c,
+                    -- contract_sla_c,
+                    -- count_c,
+                    -- credit_sla_c,
+                    -- internal_sale_profit_center,
+                    -- external_sale_profit_center_c,
+                    -- material_code_c,
+                    -- pricing_sla_c,
+                    -- retail_account_codes_c,
+                    -- retail_consumed_amount_c,
+                    -- retail_consumed_amount_per_c,
+                    -- status_report_c,
+                    -- retail_margin_c,
+                    -- technical_bd_sla_c,
+                    -- wholesale_account_code_c,
+                    -- contract_days_time_difference_c,
+                    -- contract_no_of_days_c,
+                    -- contract_date_difference_c,
+                    -- isol_gm_formula_c,
+                    -- retail_contract_daily_value_c,
+                    -- wholesale_contract_daily_value_c,
+                    -- approval_doc_status_empty_to_value_c,
+                    -- completed_in_billing_sla_c,
+                    -- lease_status_solution_to_pricing_timedif_c,
+                    -- retail_consumed_amount_left_c,
+                    -- wholesale_consumed_amount_left_c,
+                    -- pg_bd_sla_c,
+                    -- retail_billing_completed_in_sla_c,
                 FROM
                     inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c
                 WHERE
@@ -253,7 +254,7 @@ CREATE OR REPLACE TABLE
                     LEFT JOIN user u ON lr.account_manager_c = u.user_id
             ),
             -- Billing data is the first and least processed output of the original
-            -- workflow. In needed, this may need to be used to create a separate table
+            -- workflow. If needed, this may need to be used to create a separate table
             -- as it has a distinct format to the final output.
             billing_data AS (
                 SELECT
@@ -282,7 +283,7 @@ CREATE OR REPLACE TABLE
             ),
             -- Pivot and concatenation performed on retail and wholesale invoice
             -- numbers to get a single value for each SSP number, as per the
-            -- the original workflow.
+            -- original workflow.
             retail_wholesale_invoice_nos AS (
                 SELECT
                     ssp_number,
@@ -304,10 +305,8 @@ CREATE OR REPLACE TABLE
                         FOR invoice_wholesale_or_retail IN ('Retail' AS retail, 'Wholesale' AS wholesale)
                     )
             ),
-            -- Final output creates the data format that populates the various
-            -- tabs of the original Excel spreadsheet. The exception is that
-            -- that each tab contains a subset of fields, whereas here all fields
-            -- are retained.
+            -- final_output creates a format that contains all fields
+            -- used in all tabs of the original Excel spreadsheet.
             final_output AS (
                 SELECT
                     rwinv.retail_invoice_id,
@@ -326,7 +325,7 @@ CREATE OR REPLACE TABLE
                         WHEN CONTAINS_SUBSTR(lru.ssp_number, 'GX') THEN lru.ssp_number
                         ELSE NULL
                     END AS new_ssp_number,
-                    CURRENT_DATE AS current_month
+                    CURRENT_DATE() AS current_month
                 FROM
                     leasing_request_user lru
                     LEFT JOIN retail_wholesale_invoice_nos rwinv ON lru.ssp_number = rwinv.ssp_number
@@ -334,9 +333,9 @@ CREATE OR REPLACE TABLE
                     ssp_number ASC,
                     lease_update_status_code ASC
             )
-            -- The final statement adds flags to the final output allowing
-            -- the data to be easily filtered to the subsets of data populating
-            -- the different tabs of the original Excel workbook.
+            -- This statement adds flags to final_output, allowing the data
+            -- to be easily filtered to the subsets of data populating each
+            -- tab of the original Excel workbook.
         SELECT
             *,
             CASE
