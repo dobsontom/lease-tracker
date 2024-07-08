@@ -39,30 +39,21 @@ WITH
     ),
     daily_charge AS (
         SELECT
-            *,
+            a.*,
             COALESCE(
-                daily_usage_charge_retail_c,
-                daily_usage_charge_cob_c,
-                COALESCE(
-                    retail_periodic_payment_amount,
-                    wholesale_periodic_payment_amount
-                )
+                a.daily_usage_charge_retail_c,
+                a.daily_usage_charge_cob_c,
+                b.retail_periodic_payment_amount,
+                b.wholesale_periodic_payment_amount
             ) AS daily_charge
         FROM
-            (
-                SELECT
-                    a.*,
-                    b.retail_periodic_payment_amount,
-                    b.wholesale_periodic_payment_amount
-                FROM
-                    leasing_request_call_off_block a
-                    LEFT JOIN inm-iar-data-warehouse-dev.call_off_tracker.call_off_blocks_needing_daily_charge_for_sf_upload b ON a.id = b.cob_id
-                    AND a.ssp_number = b.ssp_number
-                    AND a.call_off_block_name = b.call_off_block_name
-            )
+            leasing_request_call_off_block a
+            LEFT JOIN inm-iar-data-warehouse-dev.call_off_tracker.call_off_blocks_needing_daily_charge_for_sf_upload b ON a.id = b.cob_id
+            AND a.ssp_number = b.ssp_number
+            AND a.call_off_block_name = b.call_off_block_name
         ORDER BY
-            project_id ASC,
-            start_date_time ASC
+            a.project_id ASC,
+            a.start_date_time ASC
     ),
     end_date_time_and_value AS (
         SELECT
@@ -82,7 +73,7 @@ WITH
                     project_id
             ) b ON a.project_id = b.project_id
         WHERE
-            status != 'Cancelled'
+            a.status != 'Cancelled'
     ),
     final_data AS (
         SELECT
