@@ -37,6 +37,30 @@ CREATE OR REPLACE TABLE
                 WHERE
                     is_deleted = FALSE
             ),
+            -- This CTE replicates a calcualtion that is done in Salesforce
+            -- but is not loaded into GCP.
+            business_unit_formula AS (
+                SELECT
+                    contract_number_c,
+                    CASE
+                        WHEN business_unit_c IN ('Aviation', 'Enterprise', 'Maritime') THEN business_unit_c
+                        WHEN business_unit_c = 'USG' THEN 'US Government'
+                        WHEN business_unit_c = 'G2' THEN 'Global Government'
+                        ELSE NULL
+                    END AS business_unit
+                FROM
+                    (
+                        SELECT DISTINCT
+                            contract_number_c,
+                            COALESCE(business_unit_1_c, c.name) AS business_unit_c
+                        FROM
+                            `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` a
+                            LEFT JOIN inm-iar-data-warehouse-dev.sdp_salesforce_src.account b ON a.account_c = b.id
+                            LEFT JOIN inm-iar-data-warehouse-dev.sdp_salesforce_src.record_type c ON b.record_type_id = c.id
+                        WHERE
+                            contract_number_c IS NOT NULL
+                    )
+            ),
             -- IFNULL()s ensure that final flags are applied correctly,
             -- as null NOT IN ('value') evaluates to FALSE, whereas we
             -- want it to evaluate to TRUE.
@@ -52,14 +76,14 @@ CREATE OR REPLACE TABLE
                     assessment_comments_c,
                     billing_acknowledgement_of_approval_docu_c,
                     bupa_c,
-                    business_unit_1_c AS business_unit,
+                    b.business_unit,
                     can_be_accommodated_c,
                     channel_no_2_c,
                     channel_weeks_charge_c,
                     channel_weeks_trust_comm_l_tac_c,
                     commercials_confirmed_c,
                     contract_duration_c,
-                    contract_number_c AS ssp_number,
+                    a.contract_number_c AS ssp_number,
                     contract_progress_c,
                     contract_progress_comments_c,
                     contract_sent_to_lsp_c,
@@ -232,11 +256,12 @@ CREATE OR REPLACE TABLE
                     -- retail_consumed_amount_left_c,
                     -- wholesale_consumed_amount_left_c,
                     -- pg_bd_sla_c,
-                    -- retail_billing_completed_in_sla_c,
+                    -- retail_billing_completed_in_sla_c
                 FROM
-                    inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c
+                    inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c a
+                    LEFT JOIN business_unit_formula b ON a.contract_number_c = b.contract_number_c
                 WHERE
-                    contract_number_c IS NOT NULL
+                    a.contract_number_c IS NOT NULL
             ),
             user AS (
                 SELECT
