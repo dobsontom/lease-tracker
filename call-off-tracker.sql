@@ -12,10 +12,10 @@ WITH
             lr.project_name_c AS project_name,
             lr.contract_number_c AS ssp_number,
             lr.total_value_of_the_order_c AS total_value,
-            cob.cob_end_date_c AS end_date,
-            cob.cob_end_time_c,
-            cob_start_date_c AS start_date,
+            DATE(cob_start_date_c) AS start_date,
             cob_start_time_c,
+            DATE(cob.cob_end_date_c) AS end_date,
+            cob.cob_end_time_c,
             cob.forward_bandwidth_k_hz_cob_c AS forward_bandwidth_khz,
             cob.power_d_bw_cob_c AS power_dbw,
             cob.price_plan_cob_c AS price_plan,
@@ -27,8 +27,16 @@ WITH
             cob.wholesale_contract_value_cob_c AS wholesale_block_value,
             cob.daily_usage_charge_cob_c,
             cob.daily_usage_charge_retail_c,
-            CONCAT(cob_start_date_c, ' ', cob_start_time_c) AS start_date_time,
-            CONCAT(cob_end_date_c, ' ', cob_end_time_c) AS end_date_time,
+            FORMAT_TIMESTAMP(
+                '%Y-%m-%d %H:%M:%S',
+                TIMESTAMP(
+                    CONCAT(DATE(cob_start_date_c), ' ', cob_start_time_c)
+                )
+            ) AS start_date_time,
+            FORMAT_TIMESTAMP(
+                '%Y-%m-%d %H:%M:%S',
+                TIMESTAMP(CONCAT(DATE(cob_end_date_c), ' ', cob_end_time_c))
+            ) AS end_date_time,
             COALESCE(
                 cob.retail_contract_value_cob_c,
                 cob.wholesale_contract_value_cob_c
@@ -84,7 +92,7 @@ WITH
             a.ssp_number,
             a.status,
             a.price_plan,
-            a.business_unit,
+            b.business_unit,
             a.lsp,
             a.lsr,
             a.end_customer,
@@ -130,4 +138,6 @@ SELECT
         ELSE 0
     END AS whs_flag
 FROM
-    final_data;
+    final_data
+WHERE
+    ssp_number = 'SSP2565.0';
