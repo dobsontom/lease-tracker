@@ -14,8 +14,8 @@ CREATE OR REPLACE TABLE
                     lr.project_name_c AS project_name,
                     lr.contract_number_c AS ssp_number,
                     lr.total_value_of_the_order_c AS total_value,
-                    DATE(cob_start_date_c) AS start_date,
-                    cob_start_time_c,
+                    DATE(cob.cob_start_date_c) AS start_date,
+                    cob.cob_start_time_c,
                     DATE(cob.cob_end_date_c) AS end_date,
                     cob.cob_end_time_c,
                     cob.forward_bandwidth_k_hz_cob_c AS forward_bandwidth_khz,
@@ -32,12 +32,12 @@ CREATE OR REPLACE TABLE
                     FORMAT_TIMESTAMP(
                         '%Y-%m-%d %H:%M:%S',
                         TIMESTAMP(
-                            CONCAT(DATE(cob_start_date_c), ' ', cob_start_time_c)
+                            CONCAT(DATE(cob.cob_start_date_c), ' ', cob.cob_start_time_c)
                         )
                     ) AS start_date_time,
                     FORMAT_TIMESTAMP(
                         '%Y-%m-%d %H:%M:%S',
-                        TIMESTAMP(CONCAT(DATE(cob_end_date_c), ' ', cob_end_time_c))
+                        TIMESTAMP(CONCAT(DATE(cob.cob_end_date_c), ' ', cob.cob_end_time_c))
                     ) AS end_date_time,
                     COALESCE(
                         cob.retail_contract_value_cob_c,
