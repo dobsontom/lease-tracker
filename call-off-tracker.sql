@@ -4,7 +4,7 @@ CREATE OR REPLACE TABLE
             leasing_request_call_off_block AS (
                 SELECT
                     lr.id,
-                    cob.any_other_technical_details_required_cob_c,
+                    cob.any_other_technical_details_required_cob_c AS any_other_technical_details_required_cob,
                     lr.approval_document_id_c AS approval_document_id,
                     lr.business_unit_c AS business_unit,
                     lr.name AS end_customer,
@@ -15,9 +15,9 @@ CREATE OR REPLACE TABLE
                     lr.contract_number_c AS ssp_number,
                     lr.total_value_of_the_order_c AS total_value,
                     DATE(cob.cob_start_date_c) AS start_date,
-                    cob.cob_start_time_c,
+                    cob.cob_start_time_c AS cob_start_time_c,
                     DATE(cob.cob_end_date_c) AS end_date,
-                    cob.cob_end_time_c,
+                    cob.cob_end_time_c AS cob_end_time,
                     cob.forward_bandwidth_k_hz_cob_c AS forward_bandwidth_khz,
                     cob.power_d_bw_cob_c AS power_dbw,
                     cob.price_plan_cob_c AS price_plan,
@@ -27,17 +27,23 @@ CREATE OR REPLACE TABLE
                     cob.name AS call_off_block_name,
                     cob.status_cob_c AS status,
                     cob.wholesale_contract_value_cob_c AS wholesale_block_value,
-                    cob.daily_usage_charge_cob_c,
-                    cob.daily_usage_charge_retail_c,
+                    cob.daily_usage_charge_cob_c AS daily_usage_charge_cob,
+                    cob.daily_usage_charge_retail_c AS daily_usage_charge_retail,
                     FORMAT_TIMESTAMP(
                         '%Y-%m-%d %H:%M:%S',
                         TIMESTAMP(
-                            CONCAT(DATE(cob.cob_start_date_c), ' ', cob.cob_start_time_c)
+                            CONCAT(
+                                DATE(cob.cob_start_date_c),
+                                ' ',
+                                cob.cob_start_time_c
+                            )
                         )
                     ) AS start_date_time,
                     FORMAT_TIMESTAMP(
                         '%Y-%m-%d %H:%M:%S',
-                        TIMESTAMP(CONCAT(DATE(cob.cob_end_date_c), ' ', cob.cob_end_time_c))
+                        TIMESTAMP(
+                            CONCAT(DATE(cob.cob_end_date_c), ' ', cob.cob_end_time_c)
+                        )
                     ) AS end_date_time,
                     COALESCE(
                         cob.retail_contract_value_cob_c,
@@ -51,8 +57,8 @@ CREATE OR REPLACE TABLE
                 SELECT
                     a.*,
                     COALESCE(
-                        a.daily_usage_charge_retail_c,
-                        a.daily_usage_charge_cob_c,
+                        a.daily_usage_charge_retail,
+                        a.daily_usage_charge_cob,
                         b.retail_periodic_payment_amount,
                         b.wholesale_periodic_payment_amount
                     ) AS daily_charge
@@ -109,10 +115,10 @@ CREATE OR REPLACE TABLE
                     a.end_date,
                     a.start_date_time,
                     a.end_date_time,
-                    a.any_other_technical_details_required_cob_c,
+                    a.any_other_technical_details_required_cob,
                     a.call_off_block_name,
                     a.call_off_block_value,
-                    a.daily_usage_charge_retail_c,
+                    a.daily_usage_charge_retail,
                     a.daily_charge,
                     b.start_date_of_current_lease,
                     b.end_date_of_current_lease
