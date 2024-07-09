@@ -128,7 +128,8 @@ CREATE OR REPLACE TABLE
                 AND end_date_of_current_lease >= DATE_SUB(
                     DATE_TRUNC(CURRENT_DATE(), MONTH),
                     INTERVAL 1 MONTH
-                ) THEN 1
+                )
+                AND start_date_of_current_lease <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY) THEN 1
                 ELSE 0
             END AS rtl_flag,
             CASE
@@ -136,7 +137,8 @@ CREATE OR REPLACE TABLE
                 AND end_date_of_current_lease >= DATE_SUB(
                     DATE_TRUNC(CURRENT_DATE(), MONTH),
                     INTERVAL 1 MONTH
-                ) THEN 1
+                )
+                AND start_date_of_current_lease <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY) THEN 1
                 ELSE 0
             END AS whs_flag
         FROM
