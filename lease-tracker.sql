@@ -1,5 +1,5 @@
 CREATE OR REPLACE TABLE
-    inm-iar-data-warehouse-dev.lease_tracker.lease_tracker AS (
+    `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker` AS (
         WITH
             invoice AS (
                 SELECT
@@ -31,7 +31,7 @@ CREATE OR REPLACE TABLE
                         internal_billing_status_c
                     ) AS billing_status
                 FROM
-                    inm-iar-data-warehouse-dev.sdp_salesforce_src.invoice_c
+                    `inm-iar-data-warehouse-dev.sdp_salesforce_src.invoice_c`
                 WHERE
                     is_deleted = FALSE
             ),
@@ -66,7 +66,7 @@ CREATE OR REPLACE TABLE
                 SELECT
                     account_manager_c AS account_manager,
                     account_number_c AS account_number,
-                    account_period_of_first_invoice_yyyymm_c AS account_period_of_first_invoice_yyyymm,
+                    account_period_of_first_invoice_yyyymm_c AS account_period_of_first_wholesale_invoice_yyyymm,
                     approval_document_c AS approval_document,
                     approval_document_id_c AS approval_document_id,
                     approval_document_status_c AS approval_document_status,
@@ -142,12 +142,12 @@ CREATE OR REPLACE TABLE
                     record_type_id,
                     retail_bill_interval_c AS retail_bill_interval,
                     retail_bill_interval_comments_c AS retail_bill_interval_comments,
-                    retail_billing_entered_c AS retail_billing_entered,
+                    retail_billing_entered_c AS retail_billing_date_entered,
                     IFNULL(retail_billing_status_c, '') AS retail_billing_status,
                     retail_contract_value_c AS retail_contract_value,
                     retail_periodic_payment_amount_c AS retail_periodic_payment_amount,
                     retail_pricing_comments_c AS retail_pricing_comments,
-                    return_bandwidth_k_hz_c AS return_bandwidth_k_hz,
+                    return_bandwidth_k_hz_c AS return_bandwidth_khz,
                     return_data_rates_kbps_c AS return_data_rates_kbps,
                     IFNULL(revenue_recognition_c, '') AS revenue_recognition_basis,
                     satellite_c AS satellite,
@@ -201,9 +201,9 @@ CREATE OR REPLACE TABLE
                     type_of_beam_equivalent_c AS type_of_beam_equivalent,
                     uid_unbilled_amount_retail_c AS uid_unbilled_amount_retail_formula,
                     uid_unbilled_amount_wholesale_c AS uid_unbilled_amount_wholesale_new,
-                    wholesale_billing_entered_c AS wholesale_billing_entered_day,
-                    uid_billed_amount_retail_c AS uid_billed_amount_retail_rollup,
-                    uid_billed_amount_wholesale_c AS uid_billed_amount_wholesale_rollup,
+                    wholesale_billing_entered_c AS wholesale_billing_date_entered,
+                    uid_billed_amount_retail_c AS retail_uid_billed_amount,
+                    uid_billed_amount_wholesale_c AS wholesale_uid_billed_amount,
                     po_amount_c AS po_amount,
                     CAST(
                         CONCAT(
@@ -257,7 +257,7 @@ CREATE OR REPLACE TABLE
                     -- pg_bd_sla_c,
                     -- retail_billing_completed_in_sla_c
                 FROM
-                    inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c a
+                    `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` a
                     LEFT JOIN business_unit_formula b ON a.contract_number_c = b.contract_number_c
                 WHERE
                     a.contract_number_c IS NOT NULL
@@ -268,7 +268,7 @@ CREATE OR REPLACE TABLE
                     name AS account_manager_name,
                     division AS account_manager_division
                 FROM
-                    inm-iar-data-warehouse-dev.sdp_salesforce_src.user
+                    `inm-iar-data-warehouse-dev.sdp_salesforce_src.user`
             ),
             leasing_request_user AS (
                 SELECT
@@ -345,6 +345,13 @@ CREATE OR REPLACE TABLE
                         WHEN lease_update_status = 'Contract' THEN 5
                         ELSE 1000000000
                     END AS lease_update_status_code,
+                    (
+                        DATE_DIFF(
+                            DATE_ADD(end_date_of_current_lease, INTERVAL 1 DAY),
+                            start_date_of_current_lease,
+                            DAY
+                        ) / 365.25
+                    ) * 12 AS total_no_of_months,
                     CASE
                         WHEN CONTAINS_SUBSTR(lru.ssp_number, 'GX') THEN lru.ssp_number
                         ELSE NULL
@@ -381,7 +388,7 @@ CREATE OR REPLACE TABLE
                 AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
                 AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
                 ELSE 0
-            END AS whs_external_flag,
+            END AS wholesale_external_flag,
             CASE
                 WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
                 AND internal_external = 'External'
@@ -413,7 +420,7 @@ CREATE OR REPLACE TABLE
                 AND start_date_of_current_lease <= current_month
                 AND NOT CONTAINS_SUBSTR(ssp_number, 'Free') THEN 1
                 ELSE 0
-            END AS rtl_flag,
+            END AS retail_flag,
             CASE
                 WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
                 AND lsp = 'Inmarsat Government Inc.'
@@ -460,7 +467,7 @@ CREATE OR REPLACE TABLE
                 AND start_date_of_current_lease <= current_month
                 AND end_date_of_current_lease < current_month THEN 1
                 ELSE 0
-            END AS call_off_rtl_flag,
+            END AS call_off_retail_flag,
             CASE
                 WHEN CONTAINS_SUBSTR(call_off_lease, 'Call Off')
                 AND lsp != 'Inmarsat Solutions (Canada) Inc.'
@@ -475,7 +482,7 @@ CREATE OR REPLACE TABLE
                 AND start_date_of_current_lease <= current_month
                 AND end_date_of_current_lease < current_month THEN 1
                 ELSE 0
-            END AS call_off_whs_external_flag
+            END AS call_off_wholesale_external_flag
         FROM
             final_output
     );
