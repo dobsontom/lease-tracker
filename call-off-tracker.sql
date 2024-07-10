@@ -1,5 +1,5 @@
 CREATE OR REPLACE TABLE
-    inm-iar-data-warehouse-dev.lease_tracker.call_off_tracker AS (
+    `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracker` AS (
         WITH
             leasing_request_call_off_block AS (
                 SELECT
@@ -50,8 +50,8 @@ CREATE OR REPLACE TABLE
                         cob.wholesale_contract_value_cob_c
                     ) AS call_off_block_value
                 FROM
-                    inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c lr
-                    INNER JOIN inm-iar-data-warehouse-dev.sdp_salesforce_src.call_off_block_c cob ON lr.id = cob.leasing_request_cob_c
+                    `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` lr
+                    INNER JOIN `inm-iar-data-warehouse-dev.sdp_salesforce_src.call_off_block_c` cob ON lr.id = cob.leasing_request_cob_c
             ),
             daily_charge AS (
                 SELECT
@@ -64,7 +64,7 @@ CREATE OR REPLACE TABLE
                     ) AS daily_charge
                 FROM
                     leasing_request_call_off_block a
-                    LEFT JOIN inm-iar-data-warehouse-dev.call_off_tracker.call_off_blocks_needing_daily_charge_for_sf_upload b ON a.id = b.cob_id
+                    LEFT JOIN `inm-iar-data-warehouse-dev.call_off_tracker.call_off_blocks_needing_daily_charge_for_sf_upload` b ON a.id = b.cob_id
                     AND a.ssp_number = b.ssp_number
                     AND a.call_off_block_name = b.call_off_block_name
                 ORDER BY
@@ -124,7 +124,7 @@ CREATE OR REPLACE TABLE
                     b.end_date_of_current_lease
                 FROM
                     end_date_time_and_value a
-                    INNER JOIN inm-iar-data-warehouse-dev.lease_tracker.lease_tracker b ON a.ssp_number = b.ssp_number
+                    INNER JOIN `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker` b ON a.ssp_number = b.ssp_number
             )
         SELECT
             *,
