@@ -44,8 +44,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
                     COALESCE(business_unit_1_c, c.name) AS business_unit_c
                 FROM
                     `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` AS a
-                LEFT JOIN inm-iar-data-warehouse-dev.sdp_salesforce_src.account AS b ON a.account_c = b.id
-                LEFT JOIN inm-iar-data-warehouse-dev.sdp_salesforce_src.record_type AS c ON b.record_type_id = c.id
+                LEFT JOIN `inm-iar-data-warehouse-dev.sdp_salesforce_src.account` AS b ON a.account_c = b.id
+                LEFT JOIN `inm-iar-data-warehouse-dev.sdp_salesforce_src.record_type` AS c ON b.record_type_id = c.id
                 WHERE
                     contract_number_c IS NOT NULL
             )
