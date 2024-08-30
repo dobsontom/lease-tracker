@@ -222,7 +222,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
                 ELSE ''
             END AS call_off_lease,
             CASE
-                WHEN CONTAINS_SUBSTR(lru.contract_number_c, 'GX') THEN lru.contract_number_c
+                WHEN CONTAINS_SUBSTR(lr.contract_number_c, 'GX') THEN lr.contract_number_c
             END AS new_ssp_number,
             CURRENT_DATE() AS current_month
         FROM
@@ -317,8 +317,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             inv.retail_invoice_id,
             inv.wholesale_invoice_id
         FROM
-            leasing_request_user AS lru
-        LEFT JOIN invoice_numbers AS inv ON lru.ssp_number = rwinv.ssp_number
+            leasing_request_user_data AS lru
+        LEFT JOIN invoice_numbers AS inv ON lru.ssp_number = inv.ssp_number
     )
 
     -- This statement adds flags to final_output, allowing the data
