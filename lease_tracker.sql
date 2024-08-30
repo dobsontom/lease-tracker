@@ -1,6 +1,6 @@
 CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker` AS (
     WITH
-    invoice AS (
+    invoice_data AS (
         SELECT
             id,
             is_deleted,
@@ -52,10 +52,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             )
     ),
 
-    -- IFNULL()s ensure that final flags are applied correctly,
-    -- as null NOT IN ('value') evaluates to FALSE, whereas we
-    -- want it to evaluate to TRUE.
-    leasing_request AS (
+    leasing_request_data AS (
         SELECT
             lr.account_manager_c AS account_manager,
             lr.account_number_c AS account_number,
@@ -191,6 +188,18 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
                 WHEN lr.lsp_c IN ('Inmarsat Government Inc.', 'Inmarsat Solutions (Canada) Inc.') THEN 'Internal'
                 ELSE 'External'
             END AS internal_external,
+            CASE
+                WHEN lr.lease_update_status_c = 'Commercials completed' THEN 1
+                WHEN lr.lease_update_status_c = 'Lease Cancelled' THEN 9999999
+                WHEN lr.lease_update_status_c = 'Billing' THEN 2
+                WHEN lr.lease_update_status_c = 'Solution Engineering' THEN 3
+                WHEN lr.lease_update_status_c = 'Pricing' THEN 4
+                WHEN lr.lease_update_status_c = 'Contract' THEN 5
+                ELSE 1000000000
+            END AS lease_update_status_code,
+            -- COALESCE()s ensure that the flags in the final SELECT are applied correctly for
+            -- null values. Specifically, null NOT IN ('a', 'b', 'c') evaluates to FALSE, whereas
+            -- we need this to be TRUE. To do this we substitute nulls with empty strings
             COALESCE(lr.lease_update_status_c, '') AS lease_update_status,
             COALESCE(lr.retail_billing_status_c, '') AS retail_billing_status,
             COALESCE(lr.revenue_recognition_c, '') AS revenue_recognition_basis,
@@ -211,7 +220,11 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
                 WHEN CONTAINS_SUBSTR(lr.price_plan_c, 'Take or Pay')
                     OR CONTAINS_SUBSTR(lr.lease_type_c, 'Flex') THEN 'Call Off Lease - Please refer to Call Off Tracker'
                 ELSE ''
-            END AS call_off_lease
+            END AS call_off_lease,
+            CASE
+                WHEN CONTAINS_SUBSTR(lru.contract_number_c, 'GX') THEN lru.contract_number_c
+            END AS new_ssp_number,
+            CURRENT_DATE() AS current_month
         FROM
             `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` AS lr
         LEFT JOIN business_unit_formula AS buf ON lr.contract_number_c = buf.contract_number_c
@@ -219,7 +232,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             lr.contract_number_c IS NOT NULL
     ),
 
-    user AS (
+    user_data AS (
         SELECT
             id AS user_id,
             name AS account_manager_name,
@@ -228,18 +241,18 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             `inm-iar-data-warehouse-dev.sdp_salesforce_src.user`
     ),
 
-    leasing_request_user AS (
+    leasing_request_user_data AS (
         SELECT
             lr.*,
             u.*
         FROM
-            leasing_request AS lr
-        LEFT JOIN user AS u ON lr.account_manager = u.user_id
+            leasing_request_data AS lr
+        LEFT JOIN user_data AS u ON lr.account_manager = u.user_id
     ),
 
-    -- Billing data is the first and least processed output of the original
-    -- workflow. If needed, this may need to be used to create a separate table
-    -- as it has a distinct format to the final output.
+    -- Billing Data is the first and least processed output of the original Alteryx 
+    -- workflow. This is not currently used. If needed, this will need to be added
+    -- to a seperate table as it has a different schema to the final output
     billing_data AS (
         SELECT
             lru.ssp_number,
@@ -262,13 +275,13 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             i.billed_amount AS invoice_billed_amount,
             i.created_date AS invoice_created_date
         FROM
-            leasing_request_user AS lru
-        INNER JOIN invoice AS i ON lru.id = i.leasing_request
+            leasing_request_user_data AS lru
+        INNER JOIN invoice_data AS i ON lru.id = i.leasing_request
     ),
 
     -- Pivot and concatenation performed on retail and wholesale invoice
     -- numbers to get a single value for each SSP number, as per the
-    -- original workflow.
+    -- original workflow
     invoice_numbers AS (
         SELECT
             ssp_number,
@@ -291,30 +304,13 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
         )
     ),
 
-    -- final_output creates a format that contains all fields
-    -- used in all tabs of the original Excel spreadsheet.
-    final_output AS (
+    -- Create a final schema containing all the possible fields
+    -- used across all tabs in the original Excel spreadsheet
+    add_invoice_numbers AS (
         SELECT
             lru.*,
             inv.retail_invoice_id,
-            inv.wholesale_invoice_id,
-            CASE
-                WHEN lru.lease_update_status = 'Commercials completed' THEN 1
-                WHEN lru.lease_update_status = 'Lease Cancelled' THEN 9999999
-                WHEN lru.lease_update_status = 'Billing' THEN 2
-                WHEN lru.lease_update_status = 'Solution Engineering' THEN 3
-                WHEN lru.lease_update_status = 'Pricing' THEN 4
-                WHEN lru.lease_update_status = 'Contract' THEN 5
-                ELSE 1000000000
-            END AS lease_update_status_code,
-            (
-                DATE_DIFF(DATE_ADD(lru.end_date_of_current_lease, INTERVAL 1 DAY), lru.start_date_of_current_lease, DAY)
-                / 365.25
-            ) * 12 AS total_no_of_months,
-            CASE
-                WHEN CONTAINS_SUBSTR(lru.ssp_number, 'GX') THEN lru.ssp_number
-            END AS new_ssp_number,
-            CURRENT_DATE() AS current_month
+            inv.wholesale_invoice_id
         FROM
             leasing_request_user AS lru
         LEFT JOIN invoice_numbers AS inv ON lru.ssp_number = rwinv.ssp_number
@@ -322,9 +318,13 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
 
     -- This statement adds flags to final_output, allowing the data
     -- to be easily filtered to the subsets of data populating each
-    -- tab of the original Excel workbook.
+    -- tab of the original Excel workbook
     SELECT
         *,
+        (
+            DATE_DIFF(DATE_ADD(lru.end_date_of_current_lease, INTERVAL 1 DAY), lru.start_date_of_current_lease, DAY)
+            / 365.2422
+        ) * 12 AS total_no_of_months,
         CASE
             WHEN lease_update_status != 'Lease Cancelled' THEN 1
             ELSE 0
@@ -415,5 +415,5 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             ELSE 0
         END AS call_off_wholesale_external_flag
     FROM
-        final_output
+        add_invoice_numbers
 );
