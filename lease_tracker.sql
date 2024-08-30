@@ -64,7 +64,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             lr.assessment_comments_c AS assessment_comments,
             lr.billing_acknowledgement_of_approval_docu_c AS billing_acknowledgement_of_approval_docu,
             lr.bupa_c AS bupa,
-            buf.business_unit,
+            bu.business_unit,
             lr.can_be_accommodated_c AS can_be_accommodated,
             lr.channel_no_2_c AS channel_no_2,
             lr.channel_weeks_charge_c AS channel_weeks_charge,
@@ -151,7 +151,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             lr.wholesale_billing_entered_c AS wholesale_billing_entered,
             lr.wholesale_contract_value_c AS wholesale_contract_value,
             lr.wholesale_monthly_minimum_charge_c AS wholesale_monthly_minimum_charge,
-            lr.wholesale_or_retail_c AS wholease_or_retail_formula,
+            lr.wholesale_or_retail_c AS wholesale_or_retail_formula,
             lr.wholesale_periodic_payment_amount_c AS wholesale_periodic_payment_amount,
             lr.wholesale_pricing_comments_c AS wholesale_pricing_comments,
             lr.billing_completed_c AS billing_completed,
@@ -227,7 +227,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             CURRENT_DATE() AS current_month
         FROM
             `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` AS lr
-        LEFT JOIN business_unit_formula AS buf ON lr.contract_number_c = buf.contract_number_c
+        LEFT JOIN business_unit_formula AS bu ON lr.contract_number_c = bu.contract_number_c
         WHERE
             lr.contract_number_c IS NOT NULL
     ),
@@ -244,7 +244,12 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
     leasing_request_user_data AS (
         SELECT
             lr.*,
-            u.*
+            u.account_manager_name,
+            u.account_manager_division,
+            (
+                DATE_DIFF(DATE_ADD(lr.end_date_of_current_lease, INTERVAL 1 DAY), lr.start_date_of_current_lease, DAY)
+                / 365.2422
+            ) * 12 AS total_no_of_months
         FROM
             leasing_request_data AS lr
         LEFT JOIN user_data AS u ON lr.account_manager = u.user_id
@@ -321,10 +326,6 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
     -- tab of the original Excel workbook
     SELECT
         *,
-        (
-            DATE_DIFF(DATE_ADD(lru.end_date_of_current_lease, INTERVAL 1 DAY), lru.start_date_of_current_lease, DAY)
-            / 365.2422
-        ) * 12 AS total_no_of_months,
         CASE
             WHEN lease_update_status != 'Lease Cancelled' THEN 1
             ELSE 0
