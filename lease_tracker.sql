@@ -27,7 +27,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             is_deleted = FALSE
     ),
 
-    -- This CTE replicates a calcualtion that is done in Salesforce
+    -- This CTE replicates a calculation that is done in Salesforce
     business_unit_formula AS (
         SELECT
             contract_number_c,
@@ -257,7 +257,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
 
     -- Billing Data is the first and least processed output of the original Alteryx 
     -- workflow. This is not currently used. If needed, this will need to be added
-    -- to a seperate table as it has a different schema to the final output
+    -- to a separate table as it has a different schema to the final output
     billing_data AS (
         SELECT
             lru.ssp_number,
