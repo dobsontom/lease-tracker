@@ -20,8 +20,16 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             leasing_request_c AS leasing_request,
             wholesale_credit_rebill_c AS wholesale_credit_rebill,
             wholesale_or_retail_c AS wholesale_or_retail,
-            COALESCE(invoice_number_c, external_invoice_id_c, internal_invoice_id_c) AS invoice_number,
-            COALESCE(billing_status_c, external_billing_status_c, internal_billing_status_c) AS billing_status
+            COALESCE(
+                invoice_number_c,
+                external_invoice_id_c,
+                internal_invoice_id_c
+            ) AS invoice_number,
+            COALESCE(
+                billing_status_c,
+                external_billing_status_c,
+                internal_billing_status_c
+            ) AS billing_status
         FROM
             `inm-iar-data-warehouse-dev.sdp_salesforce_src.invoice_c`
         WHERE
@@ -43,8 +51,12 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
                 COALESCE(lr.business_unit_1_c, rt.name) AS business_unit_c
             FROM
                 `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` AS lr
-            LEFT JOIN `inm-iar-data-warehouse-dev.sdp_salesforce_src.account` AS acc ON lr.account_c = acc.id
-            LEFT JOIN `inm-iar-data-warehouse-dev.sdp_salesforce_src.record_type` AS rt ON acc.record_type_id = rt.id
+            LEFT JOIN
+                `inm-iar-data-warehouse-dev.sdp_salesforce_src.account` AS acc
+                ON lr.account_c = acc.id
+            LEFT JOIN
+                `inm-iar-data-warehouse-dev.sdp_salesforce_src.record_type` AS rt
+                ON acc.record_type_id = rt.id
             WHERE
                 lr.contract_number_c IS NOT NULL
         )
@@ -56,13 +68,15 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
         SELECT
             lr.account_manager_c AS account_manager,
             lr.account_number_c AS account_number,
-            lr.account_period_of_first_invoice_yyyymm_c AS account_period_of_first_wholesale_invoice_yyyymm,
+            lr.account_period_of_first_invoice_yyyymm_c
+                AS account_period_of_first_wholesale_invoice_yyyymm,
             lr.approval_document_c AS approval_document,
             lr.approval_document_id_c AS approval_document_id,
             lr.approval_document_status_c AS approval_document_status,
             lr.approval_status_change_date_c AS approval_status_change_date,
             lr.assessment_comments_c AS assessment_comments,
-            lr.billing_acknowledgement_of_approval_docu_c AS billing_acknowledgement_of_approval_docu,
+            lr.billing_acknowledgement_of_approval_docu_c
+                AS billing_acknowledgement_of_approval_docu,
             lr.bupa_c AS bupa,
             bu.business_unit,
             lr.can_be_accommodated_c AS can_be_accommodated,
@@ -76,7 +90,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             lr.contract_progress_comments_c AS contract_progress_comments,
             lr.contract_sent_to_lsp_c AS contract_sent_to_lsp,
             lr.contract_signed_by_lsp_c AS contract_signed_by_lsp,
-            lr.contracts_acknowledgement_of_approval_do_c AS contracts_acknowledgement_of_approval_do,
+            lr.contracts_acknowledgement_of_approval_do_c
+                AS contracts_acknowledgement_of_approval_do,
             lr.conus_discount_trust_comm_l_tac_c AS conus_discount_trust_comm_l_tac,
             lr.created_date,
             lr.credit_check_comments_c AS credit_check_comments,
@@ -117,7 +132,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             lr.power_d_bw_c AS power_d_bw,
             lr.pre_sales_required_c AS pre_sales_required,
             lr.price_plan_c AS price_plan,
-            lr.pricing_acknowledgement_of_approval_docu_c AS pricing_acknowledgement_of_approval_docu,
+            lr.pricing_acknowledgement_of_approval_docu_c
+                AS pricing_acknowledgement_of_approval_docu,
             lr.primary_les_sas_c AS primary_les_sas,
             lr.project_id_c AS project_id,
             lr.project_name_c AS project_name,
@@ -175,7 +191,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             lr.year_9_c AS year_9,
             lr.approval_document_status_date_capture_c AS approval_document_status_date_capture,
             lr.approvl_doc_status_date_capture_empty_c AS approvl_doc_status_date_capture_empty,
-            lr.lease_update_status_solution_engineering_c AS lease_update_status_solution_engineering,
+            lr.lease_update_status_solution_engineering_c
+                AS lease_update_status_solution_engineering,
             lr.lease_update_status_pricing_c AS lease_update_status_pricing,
             lr.type_of_beam_equivalent_c AS type_of_beam_equivalent,
             lr.uid_unbilled_amount_retail_c AS uid_unbilled_amount_retail_formula,
@@ -186,7 +203,9 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             lr.po_amount_c AS po_amount,
             CURRENT_DATE() AS current_month,
             CASE
-                WHEN lr.lsp_c IN ('Inmarsat Government Inc.', 'Inmarsat Solutions (Canada) Inc.') THEN 'Internal'
+                WHEN
+                    lr.lsp_c IN ('Inmarsat Government Inc.', 'Inmarsat Solutions (Canada) Inc.')
+                    THEN 'Internal'
                 ELSE 'External'
             END AS internal_external,
             CASE
@@ -214,12 +233,15 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             ) AS start_date_of_current_lease,
             CAST(
                 CONCAT(
-                    CAST(CAST(lr.end_date_c AS DATE) AS STRING), 'T', LEFT(CAST(lr.lease_end_time_c AS STRING), 12)
+                    CAST(CAST(lr.end_date_c AS DATE) AS STRING),
+                    'T',
+                    LEFT(CAST(lr.lease_end_time_c AS STRING), 12)
                 ) AS DATETIME
             ) AS end_date_of_current_lease,
             CASE
                 WHEN CONTAINS_SUBSTR(lr.price_plan_c, 'Take or Pay')
-                    OR CONTAINS_SUBSTR(lr.lease_type_c, 'Flex') THEN 'Call Off Lease - Please refer to Call Off Tracker'
+                    OR CONTAINS_SUBSTR(lr.lease_type_c, 'Flex')
+                    THEN 'Call Off Lease - Please refer to Call Off Tracker'
                 ELSE ''
             END AS call_off_lease,
             CASE
@@ -249,7 +271,11 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             u.account_manager_name,
             u.account_manager_division,
             (
-                DATE_DIFF(DATE_ADD(lr.end_date_of_current_lease, INTERVAL 1 DAY), lr.start_date_of_current_lease, DAY)
+                DATE_DIFF(
+                    DATE_ADD(lr.end_date_of_current_lease, INTERVAL 1 DAY),
+                    lr.start_date_of_current_lease,
+                    DAY
+                )
                 / 365.2422
             )
             * 12 AS total_no_of_months
@@ -306,7 +332,9 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
                 ssp_number,
                 invoice_wholesale_or_retail
         ) PIVOT (
-            MAX(invoice_number) FOR invoice_wholesale_or_retail IN ('Retail' AS retail, 'Wholesale' AS wholesale)
+            MAX(invoice_number) FOR invoice_wholesale_or_retail IN (
+                'Retail' AS retail, 'Wholesale' AS wholesale
+            )
         )
     ),
 
@@ -424,68 +452,67 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             add_invoice_numbers
     ),
 
-    first_calculations AS (
+    -- Calculations that reference only fields output by the query (level 0)
+    level_1_calcs AS (
         SELECT
             *,
+            DATE('2024-07-31') AS accrual_date,  -- Accrual Date fixed at 31st July 2024
 
-            -- Lease is within a Single Month
-            EXTRACT(YEAR FROM end_date_of_current_lease) = EXTRACT(YEAR FROM start_date_of_current_lease)
-            AND EXTRACT(MONTH FROM end_date_of_current_lease) = EXTRACT(MONTH FROM start_date_of_current_lease)
+            -- Is Lease within a Single Month
+            EXTRACT(YEAR FROM end_date_of_current_lease)
+            = EXTRACT(YEAR FROM start_date_of_current_lease)
+            AND EXTRACT(MONTH FROM end_date_of_current_lease)
+            = EXTRACT(MONTH FROM start_date_of_current_lease)
                 AS is_lease_within_single_month,
-
-            -- Lease contains whole calendar month
-            NOT (
-                EXTRACT(YEAR FROM end_date_of_current_lease) = EXTRACT(YEAR FROM start_date_of_current_lease)
-                AND EXTRACT(MONTH FROM end_date_of_current_lease) = EXTRACT(MONTH FROM start_date_of_current_lease)
-            )
-            AND NOT (
-                DATE_DIFF(
-                    DATE_TRUNC(end_date_of_current_lease, MONTH),
-                    DATE_TRUNC(DATE_ADD(start_date_of_current_lease, INTERVAL -1 MONTH), MONTH),
-                    MONTH
-                ) = 1
-                AND EXTRACT(DAY FROM start_date_of_current_lease) != 1
-                AND EXTRACT(DAY FROM end_date_of_current_lease) != EXTRACT(DAY FROM LAST_DAY(end_date_of_current_lease))
-            ) AS lease_contains_whole_calendar_month,
 
             -- Is First Calendar Month Whole?
             EXTRACT(DAY FROM start_date_of_current_lease) = 1 AS is_first_calendar_month_whole,
 
             -- Is Last Calendar Month Whole?
             EXTRACT(DAY FROM end_date_of_current_lease)
-            = EXTRACT(DAY FROM LAST_DAY(end_date_of_current_lease)) AS is_last_calendar_month_whole,
+            = EXTRACT(DAY FROM LAST_DAY(end_date_of_current_lease)) AS is_last_calendar_month_whole
+        FROM add_data_flags -- Replace with your base CTE
+    ),
 
-            -- Count of Consecutive Months
-            DATE_DIFF(
-                DATE_TRUNC(end_date_of_current_lease, MONTH),
-                DATE_TRUNC(DATE_ADD(start_date_of_current_lease, INTERVAL -1 MONTH), MONTH),
-                MONTH
-            ) AS count_of_consecutive_months,
-
+    -- Calculations that reference level 1 calculations and below
+    level_2_calcs AS (
+        SELECT
+            *,
             -- Does Lease Start/End in Consecutive Months
             DATE_DIFF(
                 DATE_TRUNC(end_date_of_current_lease, MONTH),
                 DATE_TRUNC(DATE_ADD(start_date_of_current_lease, INTERVAL -1 MONTH), MONTH),
                 MONTH
-            ) = 1
-            AND EXTRACT(DAY FROM start_date_of_current_lease) != 1
-            AND EXTRACT(DAY FROM end_date_of_current_lease) != EXTRACT(DAY FROM LAST_DAY(end_date_of_current_lease))
-                AS lease_start_end_consecutive_months,
-
-            -- Accrual date - replace with dynamic value
-            DATE('2024-05-31') AS accrual_date
-        FROM add_data_flags
+            )
+            = 1
+            AND NOT is_first_calendar_month_whole
+            AND NOT is_last_calendar_month_whole AS lease_start_end_consecutive_months
+        FROM level_1_calcs
     ),
 
-    second_calculations AS (
+    -- Calculations that reference level 2 calculations and below
+    level_3_calcs AS (
         SELECT
             *,
+            -- Lease contains Whole Calendar Month
+            NOT is_lease_within_single_month
+            AND NOT lease_start_end_consecutive_months
+            AND is_first_calendar_month_whole
+            AND is_last_calendar_month_whole AS lease_contains_whole_calendar_month
+        FROM level_2_calcs
+    ),
 
+    -- Calculations that reference level 3 calculations and below
+    level_4_calcs AS (
+        SELECT
+            *,
             -- Date of First Whole Month
             CASE
                 WHEN lease_contains_whole_calendar_month THEN
                     CASE WHEN is_first_calendar_month_whole THEN start_date_of_current_lease
-                        ELSE DATE_TRUNC(DATE_ADD(start_date_of_current_lease, INTERVAL 1 MONTH), MONTH)
+                        ELSE DATE_TRUNC(
+                                DATE_ADD(start_date_of_current_lease, INTERVAL 1 MONTH), MONTH
+                            )
                     END
             END AS date_of_first_whole_month,
 
@@ -493,46 +520,26 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             CASE
                 WHEN lease_contains_whole_calendar_month THEN
                     CASE WHEN is_last_calendar_month_whole THEN end_date_of_current_lease
-                        ELSE DATE_TRUNC(DATE_SUB(end_date_of_current_lease, INTERVAL 1 MONTH), MONTH)
+                        ELSE DATE_TRUNC(
+                                DATE_SUB(end_date_of_current_lease, INTERVAL 1 MONTH), MONTH
+                            )
                     END
             END AS date_of_last_whole_month,
 
-            -- Count of Days in Split First Month
-            CASE
-                WHEN NOT is_lease_within_single_month AND NOT is_first_calendar_month_whole
-                    THEN DATE_DIFF(LAST_DAY(start_date_of_current_lease), start_date_of_current_lease, DAY) + 1
-                WHEN is_lease_within_single_month AND NOT is_first_calendar_month_whole
-                    THEN DATE_DIFF(end_date_of_current_lease, start_date_of_current_lease, DAY) + 1
-            END AS count_of_days_in_split_first_month,
-
-            -- Count of Days in Split Last Month
-            CASE
-                WHEN NOT is_lease_within_single_month AND NOT is_last_calendar_month_whole
-                    THEN EXTRACT(DAY FROM end_date_of_current_lease)
-                WHEN is_lease_within_single_month AND NOT is_last_calendar_month_whole
-                    THEN DATE_DIFF(end_date_of_current_lease, start_date_of_current_lease, DAY) + 1
-            END AS count_of_days_in_split_last_month
-            /* CASE
-                WHEN lease_update_status != 'Lease Cancelled'
-                    AND billing_source = 'Wholesale'
-                    AND bill_period_start <= accrual_date THEN billed_amount
-            END AS wholesale_billed_amount_up_to_accrual_date,
-
-            -- Retail billed amount up to accrual date
-            CASE
-                WHEN lease_update_status != 'Lease Cancelled'
-                    AND billing_source = 'Retail'
-                    AND lsp = 'Inmarsat Solutions (Canada) Inc.'
-                    AND bill_period_start <= accrual_date THEN billed_amount
-            END AS retail_billed_amount_up_to_accrual_date */
-        FROM first_calculations
+            -- Count of Consecutive Months
+            DATE_DIFF(
+                DATE_TRUNC(end_date_of_current_lease, MONTH),
+                DATE_TRUNC(DATE_ADD(start_date_of_current_lease, INTERVAL -1 MONTH), MONTH),
+                MONTH
+            )
+                AS count_of_consecutive_months
+        FROM level_3_calcs
     ),
 
-    -- Performs date calculations found in the Excel report
-    third_calculations AS (
+    -- Calculations that reference level 4 calculations and below
+    level_5_calcs AS (
         SELECT
             *,
-
             -- Count of Whole Calendar Months
             CASE
                 WHEN lease_contains_whole_calendar_month
@@ -543,60 +550,88 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
 
             -- Wholesale Whole Month Value
             CASE
-                WHEN lease_contains_whole_calendar_month THEN wholesale_contract_value / total_no_of_months
+                WHEN
+                    lease_contains_whole_calendar_month
+                    THEN wholesale_contract_value / total_no_of_months
                 ELSE 0
             END AS wholesale_whole_month_value,
 
             -- Retail Whole Month Value
             CASE
                 WHEN lsp = 'Inmarsat Solutions (Canada) Inc.'
-                    AND lease_contains_whole_calendar_month AND NOT lease_start_end_consecutive_months
-                    THEN
-                        retail_contract_value / total_no_of_months
+                    AND lease_contains_whole_calendar_month
+                    AND NOT lease_start_end_consecutive_months
+                    THEN retail_contract_value / total_no_of_months
                 ELSE 0
-            END AS retail_whole_month_value
-        FROM
-            second_calculations
+            END AS retail_whole_month_value,
+
+            -- Count of Days in Split First Month
+            CASE
+                WHEN NOT is_lease_within_single_month AND NOT is_first_calendar_month_whole
+                    THEN
+                        DATE_DIFF(
+                            LAST_DAY(start_date_of_current_lease), start_date_of_current_lease, DAY
+                        )
+                        + 1
+                WHEN is_lease_within_single_month AND NOT is_first_calendar_month_whole THEN
+                    DATE_DIFF(end_date_of_current_lease, start_date_of_current_lease, DAY) + 1
+            END AS count_of_days_in_split_first_month,
+
+            -- Count of Days in Split Last Month
+            CASE
+                WHEN NOT is_lease_within_single_month AND NOT is_last_calendar_month_whole
+                    THEN
+                        EXTRACT(DAY FROM end_date_of_current_lease)
+                WHEN is_lease_within_single_month AND NOT is_last_calendar_month_whole THEN
+                    DATE_DIFF(end_date_of_current_lease, start_date_of_current_lease, DAY) + 1
+            END AS count_of_days_in_split_last_month
+        FROM level_4_calcs
     ),
 
-    fourth_calculations AS (
+    -- Calculations that reference level 5 calculations and below
+    level_6_calcs AS (
         SELECT
             *,
-
             -- Wholesale Total Whole Months Value
             CASE
-                WHEN lease_contains_whole_calendar_month
-                    THEN
-                        count_of_whole_calendar_months * wholesale_whole_month_value
+                WHEN
+                    lease_contains_whole_calendar_month
+                    THEN count_of_whole_calendar_months * wholesale_whole_month_value
                 ELSE 0
             END AS wholesale_total_whole_months_value,
+
             -- Retail Total Whole Months Value
             CASE
-                WHEN lease_contains_whole_calendar_month
-                    THEN
-                        count_of_whole_calendar_months * retail_whole_month_value
+                WHEN
+                    lease_contains_whole_calendar_month
+                    THEN count_of_whole_calendar_months * retail_whole_month_value
                 ELSE 0
             END AS retail_total_whole_months_value,
 
             -- Total Split Days
             CASE
-                WHEN count_of_days_in_split_first_month IS NULL THEN count_of_days_in_split_last_month
-                WHEN count_of_days_in_split_last_month IS NULL THEN count_of_days_in_split_first_month
+                WHEN
+                    count_of_days_in_split_first_month IS NULL
+                    THEN count_of_days_in_split_last_month
+                WHEN
+                    count_of_days_in_split_last_month IS NULL
+                    THEN count_of_days_in_split_first_month
                 ELSE count_of_days_in_split_first_month + count_of_days_in_split_last_month
             END AS total_split_days
-        FROM
-            third_calculations
+        FROM level_5_calcs
     ),
 
-    fifth_calculations AS (
+    -- Calculations that reference level 6 calculations and below
+    level_7_calcs AS (
         SELECT
             *,
-
             -- Wholesale Remainder Value
-            wholesale_contract_value - wholesale_total_whole_months_value AS wholesale_remainder_value,
+            wholesale_contract_value
+            - wholesale_total_whole_months_value AS wholesale_remainder_value,
 
             -- Retail Remainder Value
             retail_contract_value - retail_total_whole_months_value AS retail_remainder_value,
+
             -- First Month Split Percentage
             CASE
                 WHEN is_lease_within_single_month THEN 1
@@ -608,16 +643,13 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
                 WHEN is_lease_within_single_month THEN 0
                 ELSE COALESCE(count_of_days_in_split_last_month / total_split_days, 0)
             END AS last_month_split_percentage
-
-        FROM
-            fourth_calculations
+        FROM level_6_calcs
     ),
 
-    -- Performs final calculations referencing earlier calculations
-    sixth_calculations AS (
+    -- Calculations that reference level 7 calculations and below
+    level_8_calcs AS (
         SELECT
             *,
-
             -- Wholesale First Month Value
             wholesale_remainder_value * first_month_split_percentage AS wholesale_first_month_value,
 
@@ -628,32 +660,101 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             wholesale_remainder_value * last_month_split_percentage AS wholesale_last_month_value,
 
             -- Retail Last Month Value
-            retail_remainder_value * last_month_split_percentage AS retail_last_month_value
+            retail_remainder_value * last_month_split_percentage AS retail_last_month_value,
 
-            -- Wholesale Accruals to Date
-            /*CASE
-                WHEN wholesale_billed_amount_up_to_accrual_date > wholesale_contract_value THEN 'Overbilled'
-                WHEN
-                    wholesale_billed_amount_up_to_accrual_date
-                    <= wholesale_total_whole_months_value + wholesale_first_month_value
-                    THEN 'Billed in advance'
-                ELSE wholesale_contract_value - wholesale_billed_amount_up_to_accrual_date
-            END AS wholesale_accruals_to_date,
-
-            -- Retail Accruals to Date
+            -- Count of Whole Months Past
             CASE
-                WHEN
-                    retail_billed_amount_up_to_accrual_date
-                    <= retail_total_whole_months_value + retail_first_month_value
-                    THEN 0
-                ELSE retail_contract_value - retail_billed_amount_up_to_accrual_date
-            END AS retail_accruals_to_date*/
-        FROM
-            fifth_calculations
+                WHEN date_of_first_whole_month < accrual_date
+                    THEN
+                        DATE_DIFF(accrual_date, date_of_first_whole_month, MONTH) + 1
+                ELSE 0
+            END AS count_of_whole_months_past
+        FROM level_7_calcs
     )
 
     SELECT
         *
-    FROM
-        sixth_calculations
+    FROM level_8_calcs
 );
+
+-- Retail Accrual start date
+-- , level_X AS (
+--     SELECT
+--         *,
+--         CASE
+--             -- If the maximum retail billing date is greater than the accrual date
+--             WHEN MAX(billing_overview.billing_date) OVER(PARTITION BY billing_overview.ssp_number) > accrual_date THEN NULL
+
+--             -- If the maximum retail billing date is equal to the accrual date
+--             WHEN MAX(billing_overview.billing_date) OVER(PARTITION BY billing_overview.ssp_number) = accrual_date THEN
+--                 MAX(billing_overview.billing_date) OVER(PARTITION BY billing_overview.ssp_number)
+
+--             -- If the maximum retail billing date is greater than the lookup date
+--             WHEN MAX(billing_overview.billing_date) OVER(PARTITION BY billing_overview.ssp_number) > lookup_lookup_data.lookup_date THEN
+--                 MAX(billing_overview.billing_date) OVER(PARTITION BY billing_overview.ssp_number) + INTERVAL 1 DAY
+
+--             -- Otherwise, use the lookup date from the raw data
+--             ELSE lookup_lookup_data.lookup_date
+--         END AS retail_accrual_start_date
+--     FROM
+--         level_X_minus_1 -- Replace with the appropriate level that includes the necessary fields
+
+--     LEFT JOIN
+--         billing_overview ON billing_overview.ssp_number = level_X_minus_1.ssp_number
+--         AND billing_overview.billing_type = 'Retail'
+
+--     LEFT JOIN
+--         lookup_lookup_data -- Assume this is a table or CTE containing the lookup data
+--         ON lookup_lookup_data.ssp_number = level_X_minus_1.ssp_number
+-- )
+
+-- Retail Accrual end date
+-- , level_X AS (
+--     SELECT
+--         *,
+--         CASE
+--             -- If Retail Accrual Start Date is NULL
+--             WHEN retail_accrual_start_date IS NULL THEN NULL
+
+--             -- If the lookup date is less than Accrual_date + 1, return the lookup date
+--             WHEN lookup_lookup_data.lookup_end_date < accrual_date + INTERVAL 1 DAY THEN
+--                 lookup_lookup_data.lookup_end_date
+
+--             -- Otherwise, return the Accrual date
+--             ELSE accrual_date
+--         END AS retail_accrual_end_date
+--     FROM
+--         level_X_minus_1 -- Replace with the previous level where retail_accrual_start_date is defined
+
+--     LEFT JOIN
+--         lookup_lookup_data -- This table/CTE contains the corresponding lookup dates (like raw data in Excel)
+--         ON lookup_lookup_data.ssp_number = level_X_minus_1.ssp_number
+-- )
+-- Wholesale Billed amount up to Accrual date
+-- , level_X AS (
+--     SELECT
+--         *,
+--         CASE
+--             -- If Lease Update Status is 'Lease Cancelled'
+--             WHEN lease_update_status = 'Lease Cancelled' THEN 'N/A - Lease Cancelled'
+
+--             -- Otherwise, sum the wholesale billed amounts up to the accrual date
+--             ELSE CAST(
+--                 SUM(
+--                     CASE
+--                         WHEN billing_overview.billing_date <= accrual_date
+--                             AND billing_overview.billing_ssp = level_X_minus_1.billing_match_ssp
+--                             AND billing_overview.billing_type = 'Wholesale' THEN billing_overview.billed_amount
+--                         ELSE 0
+--                     END
+--                 ) AS STRING
+--             )
+--         END AS wholesale_billed_amount_up_to_accrual_date
+--     FROM
+--         level_X_minus_1 -- Replace with the appropriate level that includes `lease_update_status` and `billing_match_ssp`
+
+--     LEFT JOIN
+--         billing_overview -- Join the Billing Overview data
+--         ON billing_overview.ssp_number = level_X_minus_1.ssp_number
+-- )
+-- Retail Billed amount up to Accrual date
