@@ -6,13 +6,6 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             id,
             is_deleted,
             name,
-            created_date,
-            created_by_id,
-            last_modified_date,
-            last_modified_by_id,
-            system_modstamp,
-            connection_received_id,
-            connection_sent_id,
             bill_period_end_c AS bill_period_end,
             bill_period_start_c AS bill_period_start,
             billed_amount_c AS billed_amount,
@@ -325,7 +318,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             SELECT
                 ssp_number,
                 invoice_wholesale_or_retail,
-                STRING_AGG(invoice_number, '; ') AS invoice_number
+                STRING_AGG(DISTINCT invoice_number, '; ') AS invoice_number
             FROM
                 billing_data
             GROUP BY
