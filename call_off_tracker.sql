@@ -3,7 +3,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.call_off_track
     leasing_request_call_off_block AS (
         SELECT
             lr.id,
-            cob.any_other_technical_details_required_cob_c AS any_other_technical_details_required_cob,
+            cob.any_other_technical_details_required_cob_c
+                AS any_other_technical_details_required_cob,
             lr.approval_document_id_c AS approval_document_id,
             lr.business_unit_c AS business_unit,
             lr.name AS end_customer,
@@ -29,12 +30,15 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.call_off_track
             DATE(cob.cob_start_date_c) AS start_date,
             DATE(cob.cob_end_date_c) AS end_date,
             FORMAT_TIMESTAMP(
-                '%Y-%m-%d %H:%M:%S', TIMESTAMP(CONCAT(DATE(cob.cob_start_date_c), ' ', cob.cob_start_time_c))
+                '%Y-%m-%d %H:%M:%S',
+                TIMESTAMP(CONCAT(DATE(cob.cob_start_date_c), ' ', cob.cob_start_time_c))
             ) AS start_date_time,
             FORMAT_TIMESTAMP(
-                '%Y-%m-%d %H:%M:%S', TIMESTAMP(CONCAT(DATE(cob.cob_end_date_c), ' ', cob.cob_end_time_c))
+                '%Y-%m-%d %H:%M:%S',
+                TIMESTAMP(CONCAT(DATE(cob.cob_end_date_c), ' ', cob.cob_end_time_c))
             ) AS end_date_time,
-            COALESCE(cob.retail_contract_value_cob_c, cob.wholesale_contract_value_cob_c) AS call_off_block_value
+            COALESCE(cob.retail_contract_value_cob_c, cob.wholesale_contract_value_cob_c)
+                AS call_off_block_value
         FROM
             `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` AS lr
         INNER JOIN
@@ -53,7 +57,9 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.call_off_track
             ) AS daily_charge
         FROM
             leasing_request_call_off_block AS a
-        LEFT JOIN `inm-iar-data-warehouse-dev.call_off_tracker.call_off_blocks_needing_daily_charge_for_sf_upload` AS b
+        LEFT JOIN
+            `inm-iar-data-warehouse-dev.call_off_tracker.call_off_blocks_needing_daily_charge_for_sf_upload`
+                AS b
             ON a.id = b.cob_id
             AND a.ssp_number = b.ssp_number
             AND a.call_off_block_name = b.call_off_block_name
@@ -116,7 +122,9 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.call_off_track
             b.end_date_of_current_lease
         FROM
             end_date_time_and_value AS a
-        INNER JOIN `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker` AS b ON a.ssp_number = b.ssp_number
+        INNER JOIN
+            `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker` AS b
+            ON a.ssp_number = b.ssp_number
     )
 
     SELECT
@@ -124,14 +132,20 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.call_off_track
         1 AS raw_data_flag,
         CASE
             WHEN lsp = 'Inmarsat Solutions (Canada) Inc.'
-                AND end_date_of_current_lease >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 MONTH)
-                AND start_date_of_current_lease <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY) THEN 1
+                AND end_date_of_current_lease
+                >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 MONTH)
+                AND start_date_of_current_lease
+                <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY)
+                THEN 1
             ELSE 0
         END AS rtl_flag,
         CASE
             WHEN lsp != 'Inmarsat Solutions (Canada) Inc.'
-                AND end_date_of_current_lease >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 MONTH)
-                AND start_date_of_current_lease <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY) THEN 1
+                AND end_date_of_current_lease
+                >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 MONTH)
+                AND start_date_of_current_lease
+                <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY)
+                THEN 1
             ELSE 0
         END AS whs_flag
     FROM
