@@ -450,7 +450,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
     level_1_calcs AS (
         SELECT
             *,
-            DATE('2024-07-31') AS accrual_date,  -- Accrual Date fixed at 31st July 2024
+            LAST_DAY(DATE_SUB(DATE('2024-07-31'), INTERVAL 1 MONTH)) AS accrual_date,
 
             -- Is Lease within a Single Month
             EXTRACT(YEAR FROM end_date_of_current_lease)
