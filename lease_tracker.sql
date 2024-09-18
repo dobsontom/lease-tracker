@@ -13,6 +13,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             leasing_request_c AS leasing_request,
             wholesale_credit_rebill_c AS wholesale_credit_rebill,
             wholesale_or_retail_c AS wholesale_or_retail,
+            created_date,
             COALESCE(
                 invoice_number_c,
                 external_invoice_id_c,
