@@ -62,8 +62,6 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
         SELECT
             lr.account_manager_c AS account_manager,
             lr.account_number_c AS account_number,
-            lr.account_period_of_first_invoice_yyyymm_c
-                AS account_period_of_first_wholesale_invoice_yyyymm,
             lr.approval_document_c AS approval_document,
             lr.approval_document_id_c AS approval_document_id,
             lr.approval_document_status_c AS approval_document_status,
@@ -195,6 +193,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             lr.uid_billed_amount_retail_c AS retail_uid_billed_amount,
             lr.uid_billed_amount_wholesale_c AS wholesale_uid_billed_amount,
             lr.po_amount_c AS po_amount,
+            DATE(lr.account_period_of_first_invoice_yyyymm_c)
+                AS account_period_of_first_wholesale_invoice_yyyymm,
             CURRENT_DATE() AS current_month,
             CASE
                 WHEN
@@ -450,7 +450,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
     level_1_calcs AS (
         SELECT
             *,
-            LAST_DAY(DATE_SUB(DATE('2024-07-31'), INTERVAL 1 MONTH)) AS accrual_date,
+            LAST_DAY(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)) AS accrual_date,
 
             -- Is Lease within a Single Month
             EXTRACT(YEAR FROM end_date_of_current_lease)
@@ -670,85 +670,3 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
         *
     FROM level_8_calcs
 );
-
--- Retail Accrual start date
--- , level_X AS (
---     SELECT
---         *,
---         CASE
---             -- If the maximum retail billing date is greater than the accrual date
---             WHEN MAX(billing_overview.billing_date) OVER(PARTITION BY billing_overview.ssp_number) > accrual_date THEN NULL
-
---             -- If the maximum retail billing date is equal to the accrual date
---             WHEN MAX(billing_overview.billing_date) OVER(PARTITION BY billing_overview.ssp_number) = accrual_date THEN
---                 MAX(billing_overview.billing_date) OVER(PARTITION BY billing_overview.ssp_number)
-
---             -- If the maximum retail billing date is greater than the lookup date
---             WHEN MAX(billing_overview.billing_date) OVER(PARTITION BY billing_overview.ssp_number) > lookup_lookup_data.lookup_date THEN
---                 MAX(billing_overview.billing_date) OVER(PARTITION BY billing_overview.ssp_number) + INTERVAL 1 DAY
-
---             -- Otherwise, use the lookup date from the raw data
---             ELSE lookup_lookup_data.lookup_date
---         END AS retail_accrual_start_date
---     FROM
---         level_X_minus_1 -- Replace with the appropriate level that includes the necessary fields
-
---     LEFT JOIN
---         billing_overview ON billing_overview.ssp_number = level_X_minus_1.ssp_number
---         AND billing_overview.billing_type = 'Retail'
-
---     LEFT JOIN
---         lookup_lookup_data -- Assume this is a table or CTE containing the lookup data
---         ON lookup_lookup_data.ssp_number = level_X_minus_1.ssp_number
--- )
-
--- Retail Accrual end date
--- , level_X AS (
---     SELECT
---         *,
---         CASE
---             -- If Retail Accrual Start Date is NULL
---             WHEN retail_accrual_start_date IS NULL THEN NULL
-
---             -- If the lookup date is less than Accrual_date + 1, return the lookup date
---             WHEN lookup_lookup_data.lookup_end_date < accrual_date + INTERVAL 1 DAY THEN
---                 lookup_lookup_data.lookup_end_date
-
---             -- Otherwise, return the Accrual date
---             ELSE accrual_date
---         END AS retail_accrual_end_date
---     FROM
---         level_X_minus_1 -- Replace with the previous level where retail_accrual_start_date is defined
-
---     LEFT JOIN
---         lookup_lookup_data -- This table/CTE contains the corresponding lookup dates (like raw data in Excel)
---         ON lookup_lookup_data.ssp_number = level_X_minus_1.ssp_number
--- )
--- Wholesale Billed amount up to Accrual date
--- , level_X AS (
---     SELECT
---         *,
---         CASE
---             -- If Lease Update Status is 'Lease Cancelled'
---             WHEN lease_update_status = 'Lease Cancelled' THEN 'N/A - Lease Cancelled'
-
---             -- Otherwise, sum the wholesale billed amounts up to the accrual date
---             ELSE CAST(
---                 SUM(
---                     CASE
---                         WHEN billing_overview.billing_date <= accrual_date
---                             AND billing_overview.billing_ssp = level_X_minus_1.billing_match_ssp
---                             AND billing_overview.billing_type = 'Wholesale' THEN billing_overview.billed_amount
---                         ELSE 0
---                     END
---                 ) AS STRING
---             )
---         END AS wholesale_billed_amount_up_to_accrual_date
---     FROM
---         level_X_minus_1 -- Replace with the appropriate level that includes `lease_update_status` and `billing_match_ssp`
-
---     LEFT JOIN
---         billing_overview -- Join the Billing Overview data
---         ON billing_overview.ssp_number = level_X_minus_1.ssp_number
--- )
--- Retail Billed amount up to Accrual date
