@@ -1,4 +1,4 @@
-CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracker` AS (
+CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracker` AS (
     WITH
     leasing_request_call_off_block AS (
         SELECT
@@ -128,7 +128,35 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.call_off_track
     )
 
     SELECT
-        *,
+        project_id AS `Project ID`,
+        max_end_date_time AS `Max_End Date Time`,
+        sum_call_off_block_value AS `Sum_Call Off Block Value`,
+        project_name AS `Project Name`,
+        ssp_number AS `SSP number`,
+        status AS `Status`,
+        price_plan AS `Price Plan`,
+        business_unit AS `Business Unit`,
+        lsp AS `LSP`,
+        lsr AS `LSR`,
+        end_customer AS `End Customer`,
+        approval_document_id AS `Approval Document ID`,
+        forward_bandwidth_khz AS `Forward Bandwidth (kHz)`,
+        return_bandwidth_khz AS `Return Bandwidth (kHz)`,
+        power_dbw AS `Power (dBW)`,
+        total_value AS `Total Value`,
+        wholesale_block_value AS `Wholesale Block Value`,
+        retail_block_value AS `Retail Block Value`,
+        start_date AS `Start Date`,
+        end_date AS `End Date`,
+        start_date_time AS `Start Date Time`,
+        end_date_time AS `End Date Time`,
+        any_other_technical_details_required_cob AS `Any_other_Technical_Details_Required_COB__c`,
+        call_off_block_name AS `Call Off Block Name`,
+        call_off_block_value AS `Call Off Block Value`,
+        daily_usage_charge_retail AS `Daily_Usage_Charge_Retail__c`,
+        daily_charge AS `Daily Charge`,
+        end_date_of_current_lease AS `End Date of Current Lease`,
+        start_date_of_current_lease AS `Start Date of Current Lease`,
         1 AS raw_data_flag,
         CASE
             WHEN lsp = 'Inmarsat Solutions (Canada) Inc.'
