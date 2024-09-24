@@ -157,7 +157,6 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
         daily_charge AS `Daily Charge`,
         end_date_of_current_lease AS `End Date of Current Lease`,
         start_date_of_current_lease AS `Start Date of Current Lease`,
-        1 AS raw_data_flag,
         CASE
             WHEN lsp = 'Inmarsat Solutions (Canada) Inc.'
                 AND end_date_of_current_lease
