@@ -93,8 +93,8 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
     final_data AS (
         SELECT
             a.project_id,
-            ps.max_end_date_time,
-            ps.sum_call_off_block_value,
+            a.max_end_date_time,
+            a.sum_call_off_block_value,
             a.project_name_c,
             a.contract_number_c,
             a.status_cob_c,
@@ -141,7 +141,7 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
                 ELSE 0
             END AS whs_flag
         FROM
-            join_values_end_times AS a
+            join_project_summaries AS a
         INNER JOIN
             `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker` AS b
             ON a.contract_number_c = b.ssp_number
@@ -160,9 +160,9 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
         lsr_c AS `LSR`,
         end_customer AS `End Customer`,
         approval_document_id_c AS `Approval Document ID`,
-        forward_bandwidth_k_hz_cob_c AS `Forward Bandwidth (kHz)`,
-        return_bandwidth_k_hz_cob_c AS `Return Bandwidth (kHz)`,
-        power_d_bw_cob_c AS `Power (dBW)`,
+        forward_bandwidth_k_hz_cob_c AS `Forward Bandwidth kHz`,
+        return_bandwidth_k_hz_cob_c AS `Return Bandwidth kHz`,
+        power_d_bw_cob_c AS `Power dBW`,
         total_value_of_the_order_c AS `Total Value`,
         wholesale_contract_value_cob_c AS `Wholesale Block Value`,
         retail_contract_value_cob_c AS `Retail Block Value`,
