@@ -98,6 +98,9 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_b
             lr.end_user_organisation_c AS end_user_organisation,
             lr.escalation_reason_c AS escalation_reason,
             lr.forward_bandwidth_k_hz_c AS forward_bandwidth_k_hz,
+            lr.forward_bandwidth_k_hz_2_c AS forward_bandwidth_khz_2,
+            lr.forward_bandwidth_k_hz_3_c AS forward_bandwidth_khz_3,
+            lr.forward_bandwidth_k_hz_4_c AS forward_bandwidth_khz_4,
             lr.forward_data_rates_kbps_c AS forward_data_rates_kbps,
             lr.gx_email_alert_recursion_stop_c AS gx_email_alert_recursion_stop,
             lr.host_radio_3_c AS host_radio_3,
@@ -340,327 +343,100 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_b
         LEFT JOIN invoice_numbers AS inv ON lru.ssp_number = inv.ssp_number
     )
 
-        SELECT
-            *,
-            CASE
-                WHEN lease_update_status != 'Lease Cancelled' THEN 1
-                ELSE 0
-            END AS raw_data_flag,
-            CASE
-                WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                    AND internal_external = 'External'
-                    AND revenue_recognition_basis != 'Flex'
-                    AND lease_update_status != 'Lease Cancelled'
-                    AND wholesale_billing_status NOT IN (
-                        'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                    )
-                    AND start_date_of_current_lease <= current_month
-                    AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
-                    AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
-                ELSE 0
-            END AS wholesale_external_flag,
-            CASE
-                WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                    AND internal_external = 'External'
-                    AND revenue_recognition_basis != 'Flex'
-                    AND lease_update_status != 'Lease Cancelled'
-                    AND wholesale_billing_status NOT IN (
-                        'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                    )
-                    AND start_date_of_current_lease <= current_month
-                    AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
-                    AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
-                ELSE 0
-            END AS gx_wholesale_external_flag,
-            CASE
-                WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                    AND internal_external = 'Internal'
-                    AND lsp = 'Inmarsat Solutions (Canada) Inc.'
-                    AND revenue_recognition_basis != 'Flex'
-                    AND lease_update_status != 'Lease Cancelled'
-                    AND retail_billing_status NOT IN (
-                        'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                    )
-                    AND start_date_of_current_lease <= current_month
-                    AND NOT CONTAINS_SUBSTR(ssp_number, 'Free') THEN 1
-                ELSE 0
-            END AS retail_flag,
-            CASE
-                WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                    AND lsp = 'Inmarsat Government Inc.'
-                    AND revenue_recognition_basis != 'Flex'
-                    AND lease_update_status != 'Lease Cancelled'
-                    AND wholesale_billing_status NOT IN (
-                        'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                    )
-                    AND start_date_of_current_lease <= current_month
-                    AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
-                    AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
-                ELSE 0
-            END AS segovia_flag,
-            CASE
-                WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                    AND lsp = 'Inmarsat Government Inc.'
-                    AND revenue_recognition_basis != 'Flex'
-                    AND lease_update_status != 'Lease Cancelled'
-                    AND wholesale_billing_status NOT IN (
-                        'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                    )
-                    AND start_date_of_current_lease <= current_month
-                    AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
-                    AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
-                ELSE 0
-            END AS gx_segovia_flag,
-            CASE
-                WHEN CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                    AND lsp = 'Inmarsat Solutions (Canada) Inc.'
-                    AND revenue_recognition_basis != 'Flex'
-                    AND lease_update_status != 'Lease Cancelled'
-                    AND retail_billing_status NOT IN (
-                        'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                    )
-                    AND start_date_of_current_lease <= current_month
-                    AND end_date_of_current_lease < current_month THEN 1
-                ELSE 0
-            END AS call_off_retail_flag,
-            CASE
-                WHEN CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                    AND lsp != 'Inmarsat Solutions (Canada) Inc.'
-                    AND revenue_recognition_basis != 'Flex'
-                    AND lease_update_status != 'Lease Cancelled'
-                    AND wholesale_billing_status NOT IN (
-                        'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                    )
-                    AND start_date_of_current_lease <= current_month
-                    AND end_date_of_current_lease < current_month THEN 1
-                ELSE 0
-            END AS call_off_wholesale_external_flag
-
-        FROM
-            add_invoice_numbers
-    ),
-
-    -- Calculations that reference only fields output by the query (level 0)
-    level_1_calcs AS (
-        SELECT
-            *,
-            LAST_DAY(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)) AS accrual_date,
-
-            -- Is Lease within a Single Month
-            EXTRACT(YEAR FROM end_date_of_current_lease)
-            = EXTRACT(YEAR FROM start_date_of_current_lease)
-            AND EXTRACT(MONTH FROM end_date_of_current_lease)
-            = EXTRACT(MONTH FROM start_date_of_current_lease)
-                AS is_lease_within_single_month,
-
-            -- Is First Calendar Month Whole?
-            EXTRACT(DAY FROM start_date_of_current_lease) = 1 AS is_first_calendar_month_whole,
-
-            -- Is Last Calendar Month Whole?
-            EXTRACT(DAY FROM end_date_of_current_lease)
-            = EXTRACT(DAY FROM LAST_DAY(end_date_of_current_lease)) AS is_last_calendar_month_whole
-        FROM add_data_flags -- Replace with your base CTE
-    ),
-
-    -- Calculations that reference level 1 calculations and below
-    level_2_calcs AS (
-        SELECT
-            *,
-            -- Does Lease Start/End in Consecutive Months
-            DATE_DIFF(
-                DATE_TRUNC(end_date_of_current_lease, MONTH),
-                DATE_TRUNC(DATE_ADD(start_date_of_current_lease, INTERVAL -1 MONTH), MONTH),
-                MONTH
-            )
-            = 1
-            AND NOT is_first_calendar_month_whole
-            AND NOT is_last_calendar_month_whole AS lease_start_end_consecutive_months
-        FROM level_1_calcs
-    ),
-
-    -- Calculations that reference level 2 calculations and below
-    level_3_calcs AS (
-        SELECT
-            *,
-            -- Lease contains Whole Calendar Month
-            NOT is_lease_within_single_month
-            AND NOT lease_start_end_consecutive_months
-            AND is_first_calendar_month_whole
-            AND is_last_calendar_month_whole AS lease_contains_whole_calendar_month
-        FROM level_2_calcs
-    ),
-
-    -- Calculations that reference level 3 calculations and below
-    level_4_calcs AS (
-        SELECT
-            *,
-            -- Date of First Whole Month
-            CASE
-                WHEN lease_contains_whole_calendar_month THEN
-                    CASE WHEN is_first_calendar_month_whole THEN start_date_of_current_lease
-                        ELSE DATE_TRUNC(
-                                DATE_ADD(start_date_of_current_lease, INTERVAL 1 MONTH), MONTH
-                            )
-                    END
-            END AS date_of_first_whole_month,
-
-            -- Date of Last Whole Month
-            CASE
-                WHEN lease_contains_whole_calendar_month THEN
-                    CASE WHEN is_last_calendar_month_whole THEN end_date_of_current_lease
-                        ELSE DATE_TRUNC(
-                                DATE_SUB(end_date_of_current_lease, INTERVAL 1 MONTH), MONTH
-                            )
-                    END
-            END AS date_of_last_whole_month,
-
-            -- Count of Consecutive Months
-            DATE_DIFF(
-                DATE_TRUNC(end_date_of_current_lease, MONTH),
-                DATE_TRUNC(DATE_ADD(start_date_of_current_lease, INTERVAL -1 MONTH), MONTH),
-                MONTH
-            )
-                AS count_of_consecutive_months
-        FROM level_3_calcs
-    ),
-
-    -- Calculations that reference level 4 calculations and below
-    level_5_calcs AS (
-        SELECT
-            *,
-            -- Count of Whole Calendar Months
-            CASE
-                WHEN lease_contains_whole_calendar_month
-                    THEN
-                        DATE_DIFF(date_of_last_whole_month, date_of_first_whole_month, MONTH) + 1
-                ELSE 0
-            END AS count_of_whole_calendar_months,
-
-            -- Wholesale Whole Month Value
-            CASE
-                WHEN
-                    lease_contains_whole_calendar_month
-                    THEN wholesale_contract_value / total_no_of_months
-                ELSE 0
-            END AS wholesale_whole_month_value,
-
-            -- Retail Whole Month Value
-            CASE
-                WHEN lsp = 'Inmarsat Solutions (Canada) Inc.'
-                    AND lease_contains_whole_calendar_month
-                    AND NOT lease_start_end_consecutive_months
-                    THEN retail_contract_value / total_no_of_months
-                ELSE 0
-            END AS retail_whole_month_value,
-
-            -- Count of Days in Split First Month
-            CASE
-                WHEN NOT is_lease_within_single_month AND NOT is_first_calendar_month_whole
-                    THEN
-                        DATE_DIFF(
-                            LAST_DAY(start_date_of_current_lease), start_date_of_current_lease, DAY
-                        )
-                        + 1
-                WHEN is_lease_within_single_month AND NOT is_first_calendar_month_whole THEN
-                    DATE_DIFF(end_date_of_current_lease, start_date_of_current_lease, DAY) + 1
-            END AS count_of_days_in_split_first_month,
-
-            -- Count of Days in Split Last Month
-            CASE
-                WHEN NOT is_lease_within_single_month AND NOT is_last_calendar_month_whole
-                    THEN
-                        EXTRACT(DAY FROM end_date_of_current_lease)
-                WHEN is_lease_within_single_month AND NOT is_last_calendar_month_whole THEN
-                    DATE_DIFF(end_date_of_current_lease, start_date_of_current_lease, DAY) + 1
-            END AS count_of_days_in_split_last_month
-        FROM level_4_calcs
-    ),
-
-    -- Calculations that reference level 5 calculations and below
-    level_6_calcs AS (
-        SELECT
-            *,
-            -- Wholesale Total Whole Months Value
-            CASE
-                WHEN
-                    lease_contains_whole_calendar_month
-                    THEN count_of_whole_calendar_months * wholesale_whole_month_value
-                ELSE 0
-            END AS wholesale_total_whole_months_value,
-
-            -- Retail Total Whole Months Value
-            CASE
-                WHEN
-                    lease_contains_whole_calendar_month
-                    THEN count_of_whole_calendar_months * retail_whole_month_value
-                ELSE 0
-            END AS retail_total_whole_months_value,
-
-            -- Total Split Days
-            CASE
-                WHEN
-                    count_of_days_in_split_first_month IS NULL
-                    THEN count_of_days_in_split_last_month
-                WHEN
-                    count_of_days_in_split_last_month IS NULL
-                    THEN count_of_days_in_split_first_month
-                ELSE count_of_days_in_split_first_month + count_of_days_in_split_last_month
-            END AS total_split_days
-        FROM level_5_calcs
-    ),
-
-    -- Calculations that reference level 6 calculations and below
-    level_7_calcs AS (
-        SELECT
-            *,
-            -- Wholesale Remainder Value
-            wholesale_contract_value
-            - wholesale_total_whole_months_value AS wholesale_remainder_value,
-
-            -- Retail Remainder Value
-            retail_contract_value - retail_total_whole_months_value AS retail_remainder_value,
-
-            -- First Month Split Percentage
-            CASE
-                WHEN is_lease_within_single_month THEN 1
-                ELSE COALESCE(count_of_days_in_split_first_month / total_split_days, 0)
-            END AS first_month_split_percentage,
-
-            -- Last Month Split Percentage
-            CASE
-                WHEN is_lease_within_single_month THEN 0
-                ELSE COALESCE(count_of_days_in_split_last_month / total_split_days, 0)
-            END AS last_month_split_percentage
-        FROM level_6_calcs
-    ),
-
-    -- Calculations that reference level 7 calculations and below
-    level_8_calcs AS (
-        SELECT
-            *,
-            -- Wholesale First Month Value
-            wholesale_remainder_value * first_month_split_percentage AS wholesale_first_month_value,
-
-            -- Retail First Month Value
-            retail_remainder_value * first_month_split_percentage AS retail_first_month_value,
-
-            -- Wholesale Last Month Value
-            wholesale_remainder_value * last_month_split_percentage AS wholesale_last_month_value,
-
-            -- Retail Last Month Value
-            retail_remainder_value * last_month_split_percentage AS retail_last_month_value,
-
-            -- Count of Whole Months Past
-            CASE
-                WHEN date_of_first_whole_month < accrual_date
-                    THEN
-                        DATE_DIFF(accrual_date, date_of_first_whole_month, MONTH) + 1
-                ELSE 0
-            END AS count_of_whole_months_past
-        FROM level_7_calcs
-    )
-
     SELECT
-        *
-    FROM level_8_calcs
+        *,
+        CASE
+            WHEN lease_update_status != 'Lease Cancelled' THEN 1
+            ELSE 0
+        END AS raw_data_flag,
+        CASE
+            WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
+                AND internal_external = 'External'
+                AND revenue_recognition_basis != 'Flex'
+                AND lease_update_status != 'Lease Cancelled'
+                AND wholesale_billing_status NOT IN (
+                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
+                )
+                AND start_date_of_current_lease <= current_month
+                AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
+                AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+            ELSE 0
+        END AS wholesale_external_flag,
+        CASE
+            WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
+                AND internal_external = 'External'
+                AND revenue_recognition_basis != 'Flex'
+                AND lease_update_status != 'Lease Cancelled'
+                AND wholesale_billing_status NOT IN (
+                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
+                )
+                AND start_date_of_current_lease <= current_month
+                AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
+                AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+            ELSE 0
+        END AS gx_wholesale_external_flag,
+        CASE
+            WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
+                AND internal_external = 'Internal'
+                AND lsp = 'Inmarsat Solutions (Canada) Inc.'
+                AND revenue_recognition_basis != 'Flex'
+                AND lease_update_status != 'Lease Cancelled'
+                AND retail_billing_status NOT IN (
+                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
+                )
+                AND start_date_of_current_lease <= current_month
+                AND NOT CONTAINS_SUBSTR(ssp_number, 'Free') THEN 1
+            ELSE 0
+        END AS retail_flag,
+        CASE
+            WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
+                AND lsp = 'Inmarsat Government Inc.'
+                AND revenue_recognition_basis != 'Flex'
+                AND lease_update_status != 'Lease Cancelled'
+                AND wholesale_billing_status NOT IN (
+                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
+                )
+                AND start_date_of_current_lease <= current_month
+                AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
+                AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+            ELSE 0
+        END AS segovia_flag,
+        CASE
+            WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
+                AND lsp = 'Inmarsat Government Inc.'
+                AND revenue_recognition_basis != 'Flex'
+                AND lease_update_status != 'Lease Cancelled'
+                AND wholesale_billing_status NOT IN (
+                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
+                )
+                AND start_date_of_current_lease <= current_month
+                AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
+                AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+            ELSE 0
+        END AS gx_segovia_flag,
+        CASE
+            WHEN CONTAINS_SUBSTR(call_off_lease, 'Call Off')
+                AND lsp = 'Inmarsat Solutions (Canada) Inc.'
+                AND revenue_recognition_basis != 'Flex'
+                AND lease_update_status != 'Lease Cancelled'
+                AND retail_billing_status NOT IN (
+                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
+                )
+                AND start_date_of_current_lease <= current_month
+                AND end_date_of_current_lease < current_month THEN 1
+            ELSE 0
+        END AS call_off_retail_flag,
+        CASE
+            WHEN CONTAINS_SUBSTR(call_off_lease, 'Call Off')
+                AND lsp != 'Inmarsat Solutions (Canada) Inc.'
+                AND revenue_recognition_basis != 'Flex'
+                AND lease_update_status != 'Lease Cancelled'
+                AND wholesale_billing_status NOT IN (
+                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
+                )
+                AND start_date_of_current_lease <= current_month
+                AND end_date_of_current_lease < current_month THEN 1
+            ELSE 0
+        END AS call_off_wholesale_external_flag
+    FROM add_invoice_numbers
 );
