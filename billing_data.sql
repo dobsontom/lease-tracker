@@ -1,4 +1,4 @@
-CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.billing_data` AS (
+CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.billing_data` AS (
     WITH
     -- Fetches and formats invoice data from GCP
     invoice_data AS (
