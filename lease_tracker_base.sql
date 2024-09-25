@@ -396,30 +396,6 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
                 AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
                 AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
             ELSE 0
-        END AS gx_segovia_flag,
-        CASE
-            WHEN CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                AND lsp = 'Inmarsat Solutions (Canada) Inc.'
-                AND revenue_recognition_basis != 'Flex'
-                AND lease_update_status != 'Lease Cancelled'
-                AND retail_billing_status NOT IN (
-                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                )
-                AND start_date_of_current_lease <= current_month
-                AND end_date_of_current_lease < current_month THEN 1
-            ELSE 0
-        END AS call_off_retail_flag,
-        CASE
-            WHEN CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                AND lsp != 'Inmarsat Solutions (Canada) Inc.'
-                AND revenue_recognition_basis != 'Flex'
-                AND lease_update_status != 'Lease Cancelled'
-                AND wholesale_billing_status NOT IN (
-                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                )
-                AND start_date_of_current_lease <= current_month
-                AND end_date_of_current_lease < current_month THEN 1
-            ELSE 0
-        END AS call_off_wholesale_external_flag
+        END AS gx_segovia_flag
     FROM add_invoice_data
 );
