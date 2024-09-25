@@ -139,6 +139,9 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             lr.return_bandwidth_k_hz_c AS return_bandwidth_khz,
             lr.return_data_rates_kbps_c AS return_data_rates_kbps,
             lr.satellite_c AS satellite,
+            lr.satellite_2_c AS satellite_2,
+            lr.satellite_3_c AS satellite_3,
+            lr.satellite_4_c AS satellite_4,
             lr.secondary_les_sas_c AS secondary_les_sas,
             lr.send_lrf_to_ops_c AS send_lrf_to_ops,
             lr.send_to_contracts_c AS send_to_contracts,
@@ -263,16 +266,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
         SELECT
             lr.*,
             u.account_manager_name,
-            u.account_manager_division,
-            (
-                DATE_DIFF(
-                    DATE_ADD(lr.end_date_of_current_lease, INTERVAL 1 DAY),
-                    lr.start_date_of_current_lease,
-                    DAY
-                )
-                / 365.2422
-            )
-            * 12 AS total_no_of_months
+            u.account_manager_division
         FROM
             leasing_request_data AS lr
         LEFT JOIN user_data AS u ON lr.account_manager = u.user_id
