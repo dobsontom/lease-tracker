@@ -1,4 +1,4 @@
-CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker` AS (
+CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_base` AS (
     WITH
     -- Fetches and formats invoice data from GCP
     invoice_data AS (
@@ -137,6 +137,9 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
             lr.retail_periodic_payment_amount_c AS retail_periodic_payment_amount,
             lr.retail_pricing_comments_c AS retail_pricing_comments,
             lr.return_bandwidth_k_hz_c AS return_bandwidth_khz,
+            lr.return_bandwidth_k_hz_2_c AS return_bandwidth_khz_2,
+            lr.return_bandwidth_k_hz_3_c AS return_bandwidth_khz_3,
+            lr.return_bandwidth_k_hz_4_c AS return_bandwidth_khz_4,
             lr.return_data_rates_kbps_c AS return_data_rates_kbps,
             lr.satellite_c AS satellite,
             lr.satellite_2_c AS satellite_2,
@@ -335,11 +338,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker`
         FROM
             leasing_request_user_data AS lru
         LEFT JOIN invoice_numbers AS inv ON lru.ssp_number = inv.ssp_number
-    ),
+    )
 
-    -- Adds flags allowing the data to be easily filtered to the slices
-    -- that populating the different tabs in the original Excel report
-    add_data_flags AS (
         SELECT
             *,
             CASE
