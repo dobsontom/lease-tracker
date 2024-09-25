@@ -196,6 +196,8 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.billing_data` A
             DATE(lr.account_period_of_first_invoice_yyyymm_c)
                 AS account_period_of_first_wholesale_invoice_yyyymm,
             CURRENT_DATE() AS current_month,
+            CURRENT_TIMESTAMP() AS last_refresh_time,
+            LAST_DAY(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)) AS accrual_date,
             CASE
                 WHEN
                     lr.lsp_c IN ('Inmarsat Government Inc.', 'Inmarsat Solutions (Canada) Inc.')
