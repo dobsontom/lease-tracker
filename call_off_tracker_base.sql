@@ -36,6 +36,20 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
                 '%Y-%m-%d %H:%M:%S',
                 TIMESTAMP(CONCAT(DATE(cob.cob_end_date_c), ' ', cob.cob_end_time_c))
             ) AS end_date_time,
+            CAST(
+                CONCAT(
+                    CAST(CAST(lr.lease_start_date_c AS DATE) AS STRING),
+                    'T',
+                    LEFT(CAST(lr.lease_start_time_c AS STRING), 12)
+                ) AS DATETIME
+            ) AS start_date_of_current_lease,
+            CAST(
+                CONCAT(
+                    CAST(CAST(lr.end_date_c AS DATE) AS STRING),
+                    'T',
+                    LEFT(CAST(lr.lease_end_time_c AS STRING), 12)
+                ) AS DATETIME
+            ) AS end_date_of_current_lease,
             COALESCE(cob.retail_contract_value_cob_c, cob.wholesale_contract_value_cob_c)
                 AS call_off_block_value
         FROM
@@ -120,31 +134,29 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
             a.daily_usage_charge_retail_c,
             a.daily_charge,
             a.wholesale_pricing_comments_c,
-            b.start_date_of_current_lease,
-            b.end_date_of_current_lease,
+            a.start_date_of_current_lease,
+            a.end_date_of_current_lease,
+            CURRENT_TIMESTAMP() AS last_refresh_time,
             CASE
                 WHEN a.lsp_c = 'Inmarsat Solutions (Canada) Inc.'
-                    AND b.end_date_of_current_lease
+                    AND a.end_date_of_current_lease
                     >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 MONTH)
-                    AND b.start_date_of_current_lease
+                    AND a.start_date_of_current_lease
                     <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY)
                     THEN 1
                 ELSE 0
             END AS rtl_flag,
             CASE
                 WHEN a.lsp_c != 'Inmarsat Solutions (Canada) Inc.'
-                    AND b.end_date_of_current_lease
+                    AND a.end_date_of_current_lease
                     >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 MONTH)
-                    AND b.start_date_of_current_lease
+                    AND a.start_date_of_current_lease
                     <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY)
                     THEN 1
                 ELSE 0
             END AS whs_flag
         FROM
             join_project_summaries AS a
-        INNER JOIN
-            `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker` AS b
-            ON a.contract_number_c = b.ssp_number
     )
 
     SELECT
@@ -179,7 +191,8 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
         end_date_of_current_lease AS `End Date of Current Lease`,
         start_date_of_current_lease AS `Start Date of Current Lease`,
         rtl_flag,
-        whs_flag
+        whs_flag,
+        last_refresh_time
     FROM
         final_data
 );
