@@ -176,7 +176,8 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_r
         po_amount AS `PO_Amount__c`,
         call_off_lease AS `Call-Off Lease`,
         current_month AS `Current Month`,
-        accrual_date AS `Accrual Date`
+        accrual_date AS `Accrual Date`,
+        last_refresh_time AS `Last Refresh Time`
     FROM
         `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_base`
     WHERE lease_update_status != 'Lease Cancelled'
