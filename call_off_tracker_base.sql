@@ -1,5 +1,5 @@
-CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracker` AS (
-    WITH leasing_request_call_off_block AS (
+CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracker_base` AS (
+    WITH lease_call_off_block_data AS (
         SELECT
             lr.id,
             cob.any_other_technical_details_required_cob_c,
@@ -61,24 +61,24 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
 
     daily_charges AS (
         SELECT
-            a.*,
+            lscob.*,
             COALESCE(
-                a.daily_usage_charge_retail_c,
-                a.daily_usage_charge_cob_c,
-                b.retail_periodic_payment_amount,
-                b.wholesale_periodic_payment_amount
+                lscob.daily_usage_charge_retail_c,
+                lscob.daily_usage_charge_cob_c,
+                chrg.retail_periodic_payment_amount,
+                chrg.wholesale_periodic_payment_amount
             ) AS daily_charge
         FROM
-            leasing_request_call_off_block AS a
+            lease_call_off_block_data AS lscob
         LEFT JOIN
             `inm-iar-data-warehouse-dev.call_off_tracker.call_off_blocks_needing_daily_charge_for_sf_upload`
-                AS b
-            ON a.id = b.cob_id
-            AND a.contract_number_c = b.ssp_number
-            AND a.call_off_block_name = b.call_off_block_name
+                AS chrg
+            ON lscob.id = chrg.cob_id
+            AND lscob.contract_number_c = chrg.ssp_number
+            AND lscob.call_off_block_name = chrg.call_off_block_name
         ORDER BY
-            a.project_id ASC,
-            a.start_date_time ASC
+            lscob.project_id ASC,
+            lscob.start_date_time ASC
     ),
 
     project_summaries AS (
@@ -94,69 +94,70 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
 
     join_project_summaries AS (
         SELECT
-            a.*,
+            dc.*,
             ps.max_end_date_time,
             ps.sum_call_off_block_value
         FROM
-            daily_charges AS a
-        INNER JOIN project_summaries AS ps ON a.project_id = ps.project_id
+            daily_charges AS dc
+        INNER JOIN project_summaries AS ps ON dc.project_id = ps.project_id
         WHERE
-            a.status_cob_c != 'Cancelled'
+            dc.status_cob_c != 'Cancelled'
     ),
 
     final_data AS (
         SELECT
-            a.project_id,
-            a.max_end_date_time,
-            a.sum_call_off_block_value,
-            a.project_name_c,
-            a.contract_number_c,
-            a.status_cob_c,
-            a.price_plan_cob_c,
-            a.business_unit_c,
-            a.lsp_c,
-            a.lsr_c,
-            a.end_customer,
-            a.approval_document_id_c,
-            a.forward_bandwidth_k_hz_cob_c,
-            a.return_bandwidth_k_hz_cob_c,
-            a.power_d_bw_cob_c,
-            a.total_value_of_the_order_c,
-            a.wholesale_contract_value_cob_c,
-            a.retail_contract_value_cob_c,
-            a.start_date,
-            a.end_date,
-            a.start_date_time,
-            a.end_date_time,
-            a.any_other_technical_details_required_cob_c,
-            a.call_off_block_name,
-            a.call_off_block_value,
-            a.daily_usage_charge_retail_c,
-            a.daily_charge,
-            a.wholesale_pricing_comments_c,
-            a.start_date_of_current_lease,
-            a.end_date_of_current_lease,
+            project_id,
+            max_end_date_time,
+            sum_call_off_block_value,
+            project_name_c,
+            contract_number_c,
+            status_cob_c,
+            price_plan_cob_c,
+            business_unit_c,
+            lsp_c,
+            lsr_c,
+            end_customer,
+            approval_document_id_c,
+            forward_bandwidth_k_hz_cob_c,
+            return_bandwidth_k_hz_cob_c,
+            power_d_bw_cob_c,
+            total_value_of_the_order_c,
+            wholesale_contract_value_cob_c,
+            retail_contract_value_cob_c,
+            start_date,
+            end_date,
+            start_date_time,
+            end_date_time,
+            any_other_technical_details_required_cob_c,
+            call_off_block_name,
+            call_off_block_value,
+            daily_usage_charge_retail_c,
+            daily_charge,
+            wholesale_pricing_comments_c,
+            start_date_of_current_lease,
+            end_date_of_current_lease,
+            LAST_DAY(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)) AS accrual_date,
             CURRENT_TIMESTAMP() AS last_refresh_time,
             CASE
-                WHEN a.lsp_c = 'Inmarsat Solutions (Canada) Inc.'
-                    AND a.end_date_of_current_lease
+                WHEN lsp_c = 'Inmarsat Solutions (Canada) Inc.'
+                    AND end_date_of_current_lease
                     >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 MONTH)
-                    AND a.start_date_of_current_lease
+                    AND start_date_of_current_lease
                     <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY)
                     THEN 1
                 ELSE 0
             END AS rtl_flag,
             CASE
-                WHEN a.lsp_c != 'Inmarsat Solutions (Canada) Inc.'
-                    AND a.end_date_of_current_lease
+                WHEN lsp_c != 'Inmarsat Solutions (Canada) Inc.'
+                    AND end_date_of_current_lease
                     >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 MONTH)
-                    AND a.start_date_of_current_lease
+                    AND start_date_of_current_lease
                     <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY)
                     THEN 1
                 ELSE 0
             END AS whs_flag
         FROM
-            join_project_summaries AS a
+            join_project_summaries
     )
 
     SELECT
@@ -190,9 +191,10 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
         wholesale_pricing_comments_c AS `Wholesale Pricing Comments`,
         end_date_of_current_lease AS `End Date of Current Lease`,
         start_date_of_current_lease AS `Start Date of Current Lease`,
+        accrual_date,
         rtl_flag,
         whs_flag,
-        last_refresh_time
+        last_refresh_time AS `Last Refresh Time`
     FROM
         final_data
 );
