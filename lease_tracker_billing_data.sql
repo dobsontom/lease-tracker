@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.billing_data` AS (
+CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_billing_data` AS (
     SELECT
         ssp_number AS `SSP number`,
         lsp AS `LSP`,
@@ -18,7 +18,8 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.billing_data` A
         invoice_bill_period_end AS `Invoice Bill Period End`,
         invoice_billing_status AS `Invoice Billing Status`,
         invoice_billed_amount AS `Invoice Billed Amount`,
-        created_date AS `Invoice Created Date`
+        created_date AS `Invoice Created Date`,
+        last_refresh_time AS `Last Refresh Time`
     FROM
         `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_base`
 );
