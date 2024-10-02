@@ -4,6 +4,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
     invoice_data AS (
         SELECT
             id AS ssp_number,
+            leasing_request_c AS leasing_request,
             name AS invoice_name,
             bill_period_end_c AS invoice_bill_period_end,
             bill_period_start_c AS invoice_bill_period_start,
@@ -58,14 +59,17 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
         SELECT
             contract_number_c,
             CASE
-                WHEN business_unit_c IN ('Aviation', 'Enterprise', 'Maritime') THEN business_unit_c
-                WHEN business_unit_c = 'USG' THEN 'US Government'
-                WHEN business_unit_c = 'G2' THEN 'Global Government'
+                WHEN business_unit_c IN ('Aviation', 'Enterprise', 'Maritime', 'US Government', 'Global Government') THEN business_unit_c
+                WHEN business_unit_c = 'Air' THEN 'Aviation'
+                WHEN business_unit_c = 'Land' THEN 'Enterprise'
+                WHEN business_unit_c = 'Sea' THEN 'Maritime'
+                WHEN business_unit_c IN ('USG', 'US Gov', 'US Govt') THEN 'US Government'
+                WHEN business_unit_c IN ('G2', 'Global', 'Global Gov', 'Global Govt') THEN 'Global Government'
             END AS business_unit
         FROM (
             SELECT DISTINCT
                 lr.contract_number_c,
-                COALESCE(lr.business_unit_1_c, rt.name) AS business_unit_c
+                COALESCE(lr.business_unit_c, lr.business_unit_1_c, rt.name) AS business_unit_c
             FROM
                 `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` AS lr
             LEFT JOIN
@@ -322,8 +326,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
             inv.invoice_created_date
         FROM
             lease_user_data AS lru
-        LEFT JOIN invoice_numbers AS nums ON lru.ssp_number = nums.ssp_number
-        LEFT JOIN invoice_data AS inv ON lru.ssp_number = inv.ssp_number
+        LEFT JOIN invoice_data AS inv ON lru.id = inv.leasing_request
+        LEFT JOIN invoice_numbers AS nums ON inv.ssp_number = nums.ssp_number
     )
 
     SELECT
