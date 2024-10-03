@@ -10,7 +10,6 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
             bill_period_start_c AS invoice_bill_period_start,
             billed_amount_c AS invoice_billed_amount,
             billing_source_c AS invoice_billing_source,
-            leasing_request_c AS leasing_request,
             wholesale_credit_rebill_c AS invoice_wholesale_credit_rebill,
             wholesale_or_retail_c AS invoice_wholesale_or_retail,
             created_date AS invoice_created_date,
@@ -56,10 +55,12 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
 
     -- Replicates a calculation performed in Salesforce but not in GCP
     business_unit_formula AS (
-        SELECT
+        SELECT DISTINCT
             contract_number_c,
             CASE
-                WHEN business_unit_c IN ('Aviation', 'Enterprise', 'Maritime', 'US Government', 'Global Government') THEN business_unit_c
+                WHEN
+                    business_unit_c IN ('Aviation', 'Enterprise', 'Maritime', 'US Government', 'Global Government')
+                    THEN business_unit_c
                 WHEN business_unit_c = 'Air' THEN 'Aviation'
                 WHEN business_unit_c = 'Land' THEN 'Enterprise'
                 WHEN business_unit_c = 'Sea' THEN 'Maritime'
@@ -67,7 +68,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
                 WHEN business_unit_c IN ('G2', 'Global', 'Global Gov', 'Global Govt') THEN 'Global Government'
             END AS business_unit
         FROM (
-            SELECT DISTINCT
+            SELECT
                 lr.contract_number_c,
                 COALESCE(lr.business_unit_c, lr.business_unit_1_c, rt.name) AS business_unit_c
             FROM
@@ -80,6 +81,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
                 ON acc.record_type_id = rt.id
             WHERE
                 lr.contract_number_c IS NOT NULL
+                AND COALESCE(lr.business_unit_c, lr.business_unit_1_c, rt.name) IS NOT NULL
         )
     ),
 
