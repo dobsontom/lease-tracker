@@ -315,21 +315,10 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
         SELECT
             lru.*,
             nums.retail_invoice_id,
-            nums.wholesale_invoice_id,
-            inv.invoice_wholesale_or_retail,
-            inv.invoice_number,
-            inv.invoice_name,
-            inv.invoice_wholesale_credit_rebill,
-            inv.invoice_billing_source,
-            inv.invoice_bill_period_start,
-            inv.invoice_bill_period_end,
-            inv.invoice_billing_status,
-            inv.invoice_billed_amount,
-            inv.invoice_created_date
+            nums.wholesale_invoice_id
         FROM
             lease_user_data AS lru
-        LEFT JOIN invoice_data AS inv ON lru.id = inv.leasing_request
-        LEFT JOIN invoice_numbers AS nums ON inv.ssp_number = nums.ssp_number
+        LEFT JOIN invoice_numbers AS nums ON lru.ssp_number = nums.ssp_number
     )
 
     SELECT
