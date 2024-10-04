@@ -185,7 +185,8 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.gx_capacity_cha
             normalised_lease_contract_no,
             MAX(CASE WHEN lease_contract_no NOT LIKE '%(FREE USE)%' THEN 1 ELSE 0 END)
                 AS has_parent_lease
-        FROM total_cost
+        FROM
+            total_cost
         GROUP BY normalised_lease_contract_no
     ),
 
@@ -193,7 +194,8 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.gx_capacity_cha
         SELECT
             calc.*,
             parent.has_parent_lease
-        FROM total_cost AS calc
+        FROM
+            total_cost AS calc
         LEFT JOIN parent_lease_flag AS parent
             ON calc.normalised_lease_contract_no = parent.normalised_lease_contract_no
     ),
