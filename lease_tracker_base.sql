@@ -228,6 +228,66 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
                 WHEN ld.lease_update_status_c = 'Contract' THEN 5
                 ELSE 1000000000
             END AS lease_update_status_code,
+            CASE
+                WHEN ld.lsp_c = 'AERO-SATCOM LIMITED' THEN '10429'
+                WHEN ld.lsp_c = 'Goonhilly, Inc.' THEN '5007794'
+                WHEN ld.lsp_c = 'BOEING SATELLITE SYSTEMS INTERNATIONAL, INC.'
+                    THEN
+                        CASE ld.name
+                            WHEN 'US Government' THEN '10363'
+                            WHEN 'Boeing' THEN '10421'
+                            ELSE '10534'
+                        END
+                WHEN ld.lsp_c = 'Satcom Direct Inc' THEN '10625'
+                WHEN ld.lsp_c = 'COMSAT, INC.' THEN '10270'
+                WHEN ld.lsp_c = 'Eclipse Ltd.' THEN '10740'
+                WHEN ld.lsp_c = 'GILAT TELECOM LTD' THEN '10557'
+                WHEN ld.lsp_c = 'Inmarsat Solutions (Canada) Inc.' THEN '60006791'
+                WHEN ld.lsp_c = 'KDDI CORPORATION' THEN '10140'
+                WHEN ld.lsp_c = 'Marlink AS' THEN '10170'
+                WHEN ld.lsp_c = 'NSSL Global GmbH' THEN '10371'
+                WHEN ld.lsp_c = 'NSSL GLOBAL LIMITED' THEN '10518'
+                WHEN ld.lsp_c = 'Inmarsat Government Inc.' THEN '10365'
+                WHEN ld.lsp_c = 'SPECTRA GROUP (UK) LIMITED' THEN '10375'
+                WHEN ld.lsp_c = 'OneWeb Technologies Inc' THEN '10394'
+                WHEN ld.lsp_c = 'SKYLO TECHNOLOGIES INC.' THEN '10618'
+                WHEN ld.lsp_c = 'CHINA TRANSPORT TELECOMMUNICATIONS & INFORMATION CENTER' THEN '10050'
+                WHEN ld.lsp_c = 'CTTIC Shanghai Co., Ltd.' THEN '10551'
+                WHEN ld.lsp_c = 'NSSLGlobal ApS' THEN '10743'
+            END AS wholesale_sap_account_code,
+            CASE
+                WHEN ld.lsp_c = 'Inmarsat Solutions (Canada) Inc.'
+                    THEN
+                        CASE
+                            WHEN ld.lsr_c = 'Al-Awsat Telecommunications Co.' THEN '825518'
+                            WHEN ld.lsr_c = 'Telespazio France' AND ld.name = 'French MoD' THEN '827732'
+                            WHEN ld.lsr_c = 'Global RadioData Communications Ltd' THEN '818018'
+                            WHEN
+                                ld.lsr_c = 'Rignet UK Ltd'
+                                AND (ld.name = 'Veripos' OR ld.name = 'Fugro' OR ld.name = 'Fugro BV')
+                                THEN '822069'
+                            WHEN ld.lsr_c IS NULL AND ld.name = 'U-blox AG' THEN '5000190'
+                            ELSE CASE ld.name
+                                    WHEN 'Fugro' THEN '828586'
+                                    WHEN 'Navcom' THEN '810606'
+                                    WHEN 'Exagone' THEN '827327'
+                                    WHEN 'ADF' THEN '60006501'
+                                    WHEN 'COA1' THEN '60006501'
+                                    WHEN 'Israeli Defence Force' THEN '825474'
+                                    WHEN 'Hemisphere' THEN '818486'
+                                    WHEN 'Hemisphere GNSS (USA), Inc.' THEN '818486'
+                                    WHEN 'Skylo' THEN '827498'
+                                    WHEN 'Skybitz' THEN '823165'
+                                    WHEN 'Iraq. Min. of Def.' THEN '825518'
+                                    WHEN 'Orbcomm' THEN '822814'
+                                    WHEN 'NZ Defence Force' THEN '828474'
+                                    WHEN 'Shared Services Canada' THEN '813548'
+                                    WHEN 'Dutch Marines' THEN '809019'
+                                    WHEN 'Sapcorda Services' THEN '827989'
+                                    WHEN 'Veripos' THEN '829468'
+                                END
+                        END
+            END AS retail_sap_account_code,
             -- COALESCE()s ensure that the flags in the final SELECT are applied correctly for
             -- null values. Specifically, null NOT IN ('a', 'b', 'c') evaluates to FALSE, whereas
             -- we need this to be TRUE. To do this we substitute nulls with empty strings
