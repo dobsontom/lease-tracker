@@ -103,13 +103,13 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.gx_capacity_cha
             l.lease_update_status NOT IN ('Pending')
             AND NOT (
                 l.lease_update_status = 'Active'
-                AND DATE(l.start_date_of_current_lease)
+                AND GREATEST(DATE_TRUNC(CURRENT_DATE(), MONTH), DATE(l.start_date_of_current_lease))
                 > DATE_TRUNC(CURRENT_DATE(), MONTH) - INTERVAL 1 DAY
             )
             AND NOT (
                 -- l.lease_update_status = 'Expired' // AND
-                DATE(l.end_date_of_current_lease)
-                < DATE_TRUNC(CURRENT_DATE(), MONTH) - INTERVAL 1 DAY
+                LEAST(LAST_DAY(CURRENT_DATE(), MONTH), DATE(l.end_date_of_current_lease))
+                <= DATE_TRUNC(CURRENT_DATE(), MONTH) - INTERVAL 1 DAY
             )
             -- Keep only lease contract numbers containing "GX"
             AND l.ssp_number LIKE '%GX%'
