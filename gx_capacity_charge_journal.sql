@@ -89,9 +89,9 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.gx_capacity_cha
                 FORMAT_DATE('%b %Y', DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH))
             ) AS assignment,
             GREATEST(DATE_TRUNC(CURRENT_DATE(), MONTH), DATE(l.start_date_of_current_lease))
-                AS lease_start_date_2022_working,
+                AS lease_start_date_calculation,
             LEAST(LAST_DAY(CURRENT_DATE(), MONTH), DATE(l.end_date_of_current_lease))
-                AS lease_end_date_2022_workings,
+                AS lease_end_date_calculation,
             IF(l.wholesale_invoice_id = '60006791', l.customer_name, l.wholesale_invoice_id)
                 AS customer
         FROM
@@ -124,7 +124,7 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.gx_capacity_cha
                 COALESCE(leasing_request_lease_customer_name, ''), '-',
                 COALESCE(wholesale_sap_account_code, '')
             ) AS text,
-            DATE_DIFF(lease_start_date_2022_working, lease_end_date_2022_workings, MONTH)
+            DATE_DIFF(lease_start_date_calculation, lease_end_date_calculation, MONTH)
                 AS months_active,
             (
                 COALESCE(forward_bandwidth_mhz, 0)
