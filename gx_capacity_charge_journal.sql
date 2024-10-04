@@ -51,13 +51,12 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.gx_capacity_cha
         SELECT
             l.lease_update_status AS status,
             l.ssp_number AS lease_contract_no,
-            l.account_number,
-            l.account_manager,
             l.end_customer AS leasing_request_lease_customer_name,
             l.lsr,
             l.lsp,
             l.retail_invoice_id AS retail_sap_account_codes,
-            l.account_number AS wholesale_sap_account_code, -- This needs attention as it sometimes has the wrong value.
+            l.wholesale_sap_account_code,
+            l.retail_sap_account_code,
             l.business_unit,
             l.service_type,
             l.number_of_beams,
@@ -73,6 +72,8 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.gx_capacity_cha
                 WHEN business_unit = 'Global Government' THEN '4500'
                 WHEN business_unit = 'US Government' THEN '4020'
             END AS profit_center,
+            IF(l.wholesale_sap_account_code = '60006791', l.retail_sap_account_code, l.wholesale_sap_account_code)
+                AS customer,
             REGEXP_REPLACE(ssp_number, '\\S(\\s*\\(FREE USE\\)\\s*)$', '') AS normalised_lease_contract_no,
             FORMAT_DATE('%d-%m-%Y', DATE(l.start_date_of_current_lease)) AS lease_start_date,
             FORMAT_DATE('%d-%m-%Y', DATE(l.end_date_of_current_lease)) AS lease_end_date,
@@ -92,8 +93,6 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.gx_capacity_cha
                 AS lease_start_date_calculation,
             LEAST(LAST_DAY(CURRENT_DATE(), MONTH), DATE(l.end_date_of_current_lease))
                 AS lease_end_date_calculation,
-            IF(l.wholesale_invoice_id = '60006791', l.customer_name, l.wholesale_invoice_id)
-                AS customer,
             DATE_DIFF(LAST_DAY(CURRENT_DATE(), MONTH), DATE_TRUNC(CURRENT_DATE(), MONTH), DAY) + 1
                 AS days_in_current_month
         FROM
@@ -160,26 +159,46 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.gx_capacity_cha
         LEFT JOIN
             parent_lease_flag AS parent
             ON calc.normalised_lease_contract_no = parent.normalised_lease_contract_no
+    ),
+
+    final_data AS (
+        SELECT DISTINCT
+            lease_contract_no,
+            normalised_lease_contract_no,
+            profit_center,
+            '70102179' AS product_material,
+            NULL AS wbs_element,
+            NULL AS trading_partner,
+            text,
+            '40' AS posting_key,
+            assignment,
+            NULL AS tax_amount,
+            NULL AS tax_on_sales_code,
+            'X' AS profitability_segment,
+            customer,
+            CASE
+                WHEN has_parent_lease = 1 AND lease_contract_no LIKE '%(FREE USE)%' THEN 0
+                ELSE amount_in_doc_currency
+            END AS amount_in_doc_currency
+        FROM
+            add_parent_lease_flag
     )
 
-    SELECT DISTINCT
+    SELECT
         lease_contract_no,
         normalised_lease_contract_no,
         profit_center,
-        '70102179' AS product_material,
-        NULL AS wbs_element,
-        NULL AS trading_partner,
+        product_material,
+        wbs_element,
+        trading_partner,
         text,
-        '40' AS posting_key,
+        posting_key,
         assignment,
-        NULL AS tax_amount,
-        NULL AS tax_on_sales_code,
-        'X' AS profitability_segment,
-        wholesale_sap_account_code AS customer, -- Needs attention
-        CASE
-            WHEN has_parent_lease = 1 AND lease_contract_no LIKE '%(FREE USE)%' THEN 0
-            ELSE amount_in_doc_currency
-        END AS amount_in_doc_currency
+        tax_amount,
+        tax_on_sales_code,
+        profitability_segment,
+        customer,
+        amount_in_doc_currency
     FROM
-        add_parent_lease_flag
+        final_data
 );
