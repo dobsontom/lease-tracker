@@ -13,24 +13,14 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
             wholesale_credit_rebill_c AS invoice_wholesale_credit_rebill,
             wholesale_or_retail_c AS invoice_wholesale_or_retail,
             created_date AS invoice_created_date,
-            COALESCE(
-                invoice_number_c,
-                external_invoice_id_c,
-                internal_invoice_id_c
-            ) AS invoice_number,
-            COALESCE(
-                billing_status_c,
-                external_billing_status_c,
-                internal_billing_status_c
-            ) AS invoice_billing_status
-        FROM
-            `inm-iar-data-warehouse-dev.sdp_salesforce_src.invoice_c`
-        WHERE
-            is_deleted = FALSE
+            COALESCE(invoice_number_c, external_invoice_id_c, internal_invoice_id_c) AS invoice_number,
+            COALESCE(billing_status_c, external_billing_status_c, internal_billing_status_c) AS invoice_billing_status
+        FROM `inm-iar-data-warehouse-dev.sdp_salesforce_src.invoice_c`
+        WHERE is_deleted = FALSE
     ),
 
-    -- Pivot and concatenation performed on retail and wholesale invoice
-    -- numbers to get a single value for each SSP number
+    -- Pivot and concatenation performed to get aggregated retail and
+    -- wholesale invoice numbers for each SSP number
     invoice_numbers AS (
         SELECT
             ssp_number,
@@ -41,19 +31,14 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
                 ssp_number,
                 invoice_wholesale_or_retail,
                 STRING_AGG(DISTINCT invoice_number, '; ') AS invoice_number
-            FROM
-                invoice_data
-            GROUP BY
-                ssp_number,
-                invoice_wholesale_or_retail
+            FROM invoice_data
+            GROUP BY ssp_number, invoice_wholesale_or_retail
         ) PIVOT (
-            MAX(invoice_number) FOR invoice_wholesale_or_retail IN (
-                'Retail' AS retail, 'Wholesale' AS wholesale
-            )
+            MAX(invoice_number) FOR invoice_wholesale_or_retail IN ('Retail' AS retail, 'Wholesale' AS wholesale)
         )
     ),
 
-    -- Replicates a calculation performed in Salesforce but not in GCP
+    -- Replicates and expands upon a calculation performed in Salesforce
     business_unit_formula AS (
         SELECT DISTINCT
             contract_number_c,
@@ -71,16 +56,10 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
             SELECT
                 lr.contract_number_c,
                 COALESCE(lr.business_unit_c, lr.business_unit_1_c, rt.name) AS business_unit_c
-            FROM
-                `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` AS lr
-            LEFT JOIN
-                `inm-iar-data-warehouse-dev.sdp_salesforce_src.account` AS acc
-                ON lr.account_c = acc.id
-            LEFT JOIN
-                `inm-iar-data-warehouse-dev.sdp_salesforce_src.record_type` AS rt
-                ON acc.record_type_id = rt.id
-            WHERE
-                lr.contract_number_c IS NOT NULL
+            FROM `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` AS lr
+            LEFT JOIN `inm-iar-data-warehouse-dev.sdp_salesforce_src.account` AS acc ON lr.account_c = acc.id
+            LEFT JOIN `inm-iar-data-warehouse-dev.sdp_salesforce_src.record_type` AS rt ON acc.record_type_id = rt.id
+            WHERE lr.contract_number_c IS NOT NULL
                 AND COALESCE(lr.business_unit_c, lr.business_unit_1_c, rt.name) IS NOT NULL
         )
     ),
@@ -99,7 +78,6 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
             ld.billing_acknowledgement_of_approval_docu_c
                 AS billing_acknowledgement_of_approval_docu,
             ld.bupa_c AS bupa,
-            bu.business_unit,
             ld.can_be_accommodated_c AS can_be_accommodated,
             ld.channel_no_2_c AS channel_no_2,
             ld.channel_weeks_charge_c AS channel_weeks_charge,
@@ -231,15 +209,14 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
             ld.uid_billed_amount_retail_c AS retail_uid_billed_amount,
             ld.uid_billed_amount_wholesale_c AS wholesale_uid_billed_amount,
             ld.po_amount_c AS po_amount,
+            bu.business_unit,
             DATE(ld.account_period_of_first_invoice_yyyymm_c)
                 AS account_period_of_first_wholesale_invoice_yyyymm,
             CURRENT_DATE() AS current_month,
             CURRENT_TIMESTAMP() AS last_refresh_time,
             LAST_DAY(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)) AS accrual_date,
             CASE
-                WHEN
-                    ld.lsp_c IN ('Inmarsat Government Inc.', 'Inmarsat Solutions (Canada) Inc.')
-                    THEN 'Internal'
+                WHEN ld.lsp_c IN ('Inmarsat Government Inc.', 'Inmarsat Solutions (Canada) Inc.') THEN 'Internal'
                 ELSE 'External'
             END AS internal_external,
             CASE
@@ -267,130 +244,125 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
             ) AS start_date_of_current_lease,
             CAST(
                 CONCAT(
-                    CAST(CAST(ld.end_date_c AS DATE) AS STRING),
-                    'T',
-                    LEFT(CAST(ld.lease_end_time_c AS STRING), 12)
+                    CAST(CAST(ld.end_date_c AS DATE) AS STRING), 'T', LEFT(CAST(ld.lease_end_time_c AS STRING), 12)
                 ) AS DATETIME
             ) AS end_date_of_current_lease,
             CASE
-                WHEN CONTAINS_SUBSTR(ld.price_plan_c, 'Take or Pay')
-                    OR CONTAINS_SUBSTR(ld.lease_type_c, 'Flex')
+                WHEN
+                    CONTAINS_SUBSTR(ld.price_plan_c, 'Take or Pay') OR CONTAINS_SUBSTR(ld.lease_type_c, 'Flex')
                     THEN 'Call Off Lease - Please refer to Call Off Tracker'
                 ELSE ''
             END AS call_off_lease,
             CASE
                 WHEN CONTAINS_SUBSTR(ld.contract_number_c, 'GX') THEN ld.contract_number_c
             END AS new_ssp_number
-        FROM
-            `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` AS ld
+        FROM `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` AS ld
         LEFT JOIN business_unit_formula AS bu ON ld.contract_number_c = bu.contract_number_c
-        WHERE
-            ld.contract_number_c IS NOT NULL
+        WHERE ld.contract_number_c IS NOT NULL
     ),
 
-    -- Fetches and formats user data from GCP
     user_data AS (
         SELECT
             id AS user_id,
             name AS account_manager_name,
             division AS account_manager_division
-        FROM
-            `inm-iar-data-warehouse-dev.sdp_salesforce_src.user`
+        FROM `inm-iar-data-warehouse-dev.sdp_salesforce_src.user`
     ),
 
-    -- Joins leasing request and user data
     lease_user_data AS (
         SELECT
             ld.*,
             u.account_manager_name,
             u.account_manager_division
-        FROM
-            lease_data AS ld
+        FROM lease_data AS ld
         LEFT JOIN user_data AS u ON ld.account_manager = u.user_id
     ),
 
-
-    -- Joins invoice data to leasing request and user data
     add_invoice_data AS (
         SELECT
             lru.*,
             nums.retail_invoice_id,
             nums.wholesale_invoice_id
-        FROM
-            lease_user_data AS lru
+        FROM lease_user_data AS lru
         LEFT JOIN invoice_numbers AS nums ON lru.ssp_number = nums.ssp_number
+    ),
+
+    apply_flags AS (
+        SELECT
+            *,
+            CASE
+                WHEN lease_update_status != 'Lease Cancelled' THEN 1
+                ELSE 0
+            END AS raw_data_flag,
+            CASE
+                WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
+                    AND internal_external = 'External'
+                    AND revenue_recognition_basis != 'Flex'
+                    AND lease_update_status != 'Lease Cancelled'
+                    AND wholesale_billing_status NOT IN (
+                        'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
+                    )
+                    AND start_date_of_current_lease <= current_month
+                    AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
+                    AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+                ELSE 0
+            END AS wholesale_external_flag,
+            CASE
+                WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
+                    AND internal_external = 'External'
+                    AND revenue_recognition_basis != 'Flex'
+                    AND lease_update_status != 'Lease Cancelled'
+                    AND wholesale_billing_status NOT IN (
+                        'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
+                    )
+                    AND start_date_of_current_lease <= current_month
+                    AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
+                    AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+                ELSE 0
+            END AS gx_wholesale_external_flag,
+            CASE
+                WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
+                    AND internal_external = 'Internal'
+                    AND lsp = 'Inmarsat Solutions (Canada) Inc.'
+                    AND revenue_recognition_basis != 'Flex'
+                    AND lease_update_status != 'Lease Cancelled'
+                    AND retail_billing_status NOT IN (
+                        'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
+                    )
+                    AND start_date_of_current_lease <= current_month
+                    AND NOT CONTAINS_SUBSTR(ssp_number, 'Free') THEN 1
+                ELSE 0
+            END AS retail_flag,
+            CASE
+                WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
+                    AND lsp = 'Inmarsat Government Inc.'
+                    AND revenue_recognition_basis != 'Flex'
+                    AND lease_update_status != 'Lease Cancelled'
+                    AND wholesale_billing_status NOT IN (
+                        'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
+                    )
+                    AND start_date_of_current_lease <= current_month
+                    AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
+                    AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+                ELSE 0
+            END AS segovia_flag,
+            CASE
+                WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
+                    AND lsp = 'Inmarsat Government Inc.'
+                    AND revenue_recognition_basis != 'Flex'
+                    AND lease_update_status != 'Lease Cancelled'
+                    AND wholesale_billing_status NOT IN (
+                        'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
+                    )
+                    AND start_date_of_current_lease <= current_month
+                    AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
+                    AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+                ELSE 0
+            END AS gx_segovia_flag
+        FROM add_invoice_data
     )
 
     SELECT
-        *,
-        CASE
-            WHEN lease_update_status != 'Lease Cancelled' THEN 1
-            ELSE 0
-        END AS raw_data_flag,
-        CASE
-            WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                AND internal_external = 'External'
-                AND revenue_recognition_basis != 'Flex'
-                AND lease_update_status != 'Lease Cancelled'
-                AND wholesale_billing_status NOT IN (
-                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                )
-                AND start_date_of_current_lease <= current_month
-                AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
-                AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
-            ELSE 0
-        END AS wholesale_external_flag,
-        CASE
-            WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                AND internal_external = 'External'
-                AND revenue_recognition_basis != 'Flex'
-                AND lease_update_status != 'Lease Cancelled'
-                AND wholesale_billing_status NOT IN (
-                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                )
-                AND start_date_of_current_lease <= current_month
-                AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
-                AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
-            ELSE 0
-        END AS gx_wholesale_external_flag,
-        CASE
-            WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                AND internal_external = 'Internal'
-                AND lsp = 'Inmarsat Solutions (Canada) Inc.'
-                AND revenue_recognition_basis != 'Flex'
-                AND lease_update_status != 'Lease Cancelled'
-                AND retail_billing_status NOT IN (
-                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                )
-                AND start_date_of_current_lease <= current_month
-                AND NOT CONTAINS_SUBSTR(ssp_number, 'Free') THEN 1
-            ELSE 0
-        END AS retail_flag,
-        CASE
-            WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                AND lsp = 'Inmarsat Government Inc.'
-                AND revenue_recognition_basis != 'Flex'
-                AND lease_update_status != 'Lease Cancelled'
-                AND wholesale_billing_status NOT IN (
-                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                )
-                AND start_date_of_current_lease <= current_month
-                AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
-                AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
-            ELSE 0
-        END AS segovia_flag,
-        CASE
-            WHEN NOT CONTAINS_SUBSTR(call_off_lease, 'Call Off')
-                AND lsp = 'Inmarsat Government Inc.'
-                AND revenue_recognition_basis != 'Flex'
-                AND lease_update_status != 'Lease Cancelled'
-                AND wholesale_billing_status NOT IN (
-                    'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
-                )
-                AND start_date_of_current_lease <= current_month
-                AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
-                AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
-            ELSE 0
-        END AS gx_segovia_flag
-    FROM add_invoice_data
+        *
+    FROM apply_flags
 );
