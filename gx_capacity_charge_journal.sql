@@ -156,7 +156,7 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.gx_capacity_cha
                 COALESCE(leasing_request_lease_customer_name, ''), '-',
                 COALESCE(wholesale_sap_account_code, '')
             ) AS text,
-            DATE_DIFF(lease_end_date_calculation, lease_start_date_calculation, DAY) + 1
+            (DATE_DIFF(lease_end_date_calculation, lease_start_date_calculation, DAY) + 1)
             / days_in_current_month AS months_active,
             (
                 forward_bandwidth_mhz
