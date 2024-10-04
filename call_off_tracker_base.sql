@@ -29,12 +29,10 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
             DATE(cob.cob_start_date_c) AS start_date,
             DATE(cob.cob_end_date_c) AS end_date,
             FORMAT_TIMESTAMP(
-                '%Y-%m-%d %H:%M:%S',
-                TIMESTAMP(CONCAT(DATE(cob.cob_start_date_c), ' ', cob.cob_start_time_c))
+                '%Y-%m-%d %H:%M:%S', TIMESTAMP(CONCAT(DATE(cob.cob_start_date_c), ' ', cob.cob_start_time_c))
             ) AS start_date_time,
             FORMAT_TIMESTAMP(
-                '%Y-%m-%d %H:%M:%S',
-                TIMESTAMP(CONCAT(DATE(cob.cob_end_date_c), ' ', cob.cob_end_time_c))
+                '%Y-%m-%d %H:%M:%S', TIMESTAMP(CONCAT(DATE(cob.cob_end_date_c), ' ', cob.cob_end_time_c))
             ) AS end_date_time,
             CAST(
                 CONCAT(
@@ -45,13 +43,10 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
             ) AS start_date_of_current_lease,
             CAST(
                 CONCAT(
-                    CAST(CAST(lr.end_date_c AS DATE) AS STRING),
-                    'T',
-                    LEFT(CAST(lr.lease_end_time_c AS STRING), 12)
+                    CAST(CAST(lr.end_date_c AS DATE) AS STRING), 'T', LEFT(CAST(lr.lease_end_time_c AS STRING), 12)
                 ) AS DATETIME
             ) AS end_date_of_current_lease,
-            COALESCE(cob.retail_contract_value_cob_c, cob.wholesale_contract_value_cob_c)
-                AS call_off_block_value
+            COALESCE(cob.retail_contract_value_cob_c, cob.wholesale_contract_value_cob_c) AS call_off_block_value
         FROM
             `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` AS lr
         INNER JOIN
@@ -71,8 +66,7 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
         FROM
             lease_call_off_block_data AS lscob
         LEFT JOIN
-            `inm-iar-data-warehouse-dev.call_off_tracker.call_off_blocks_needing_daily_charge_for_sf_upload`
-                AS chrg
+            `inm-iar-data-warehouse-dev.call_off_tracker.call_off_blocks_needing_daily_charge_for_sf_upload` AS chrg
             ON lscob.id = chrg.cob_id
             AND lscob.contract_number_c = chrg.ssp_number
             AND lscob.call_off_block_name = chrg.call_off_block_name
@@ -140,19 +134,15 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
             CURRENT_TIMESTAMP() AS last_refresh_time,
             CASE
                 WHEN lsp_c = 'Inmarsat Solutions (Canada) Inc.'
-                    AND end_date_of_current_lease
-                    >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 MONTH)
-                    AND start_date_of_current_lease
-                    <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY)
+                    AND end_date_of_current_lease >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 MONTH)
+                    AND start_date_of_current_lease <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY)
                     THEN 1
                 ELSE 0
             END AS rtl_flag,
             CASE
                 WHEN lsp_c != 'Inmarsat Solutions (Canada) Inc.'
-                    AND end_date_of_current_lease
-                    >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 MONTH)
-                    AND start_date_of_current_lease
-                    <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY)
+                    AND end_date_of_current_lease >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 MONTH)
+                    AND start_date_of_current_lease <= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY)
                     THEN 1
                 ELSE 0
             END AS whs_flag
