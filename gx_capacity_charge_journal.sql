@@ -76,14 +76,14 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.gx_capacity_cha
             REGEXP_REPLACE(ssp_number, '\\S(\\s*\\(FREE USE\\)\\s*)$', '') AS normalised_lease_contract_no,
             FORMAT_DATE('%d-%m-%Y', DATE(l.start_date_of_current_lease)) AS lease_start_date,
             FORMAT_DATE('%d-%m-%Y', DATE(l.end_date_of_current_lease)) AS lease_end_date,
-            IF(l.satellite IS NOT NULL, 100, NULL) AS forward_bandwidth_mhz,
-            IF(l.satellite IS NOT NULL, 100, NULL) AS return_bandwidth_mhz,
-            IF(l.satellite_2 IS NOT NULL, 100, NULL) AS forward_bandwidth_mhz_2,
-            IF(l.satellite_2 IS NOT NULL, 100, NULL) AS return_bandwidth_mhz_2,
-            IF(l.satellite_3 IS NOT NULL, 100, NULL) AS forward_bandwidth_mhz_3,
-            IF(l.satellite_3 IS NOT NULL, 100, NULL) AS return_bandwidth_mhz_3,
-            IF(l.satellite_4 IS NOT NULL, 100, NULL) AS forward_bandwidth_mhz_4,
-            IF(l.satellite_4 IS NOT NULL, 100, NULL) AS return_bandwidth_mhz_4,
+            IF(l.satellite IS NOT NULL, 100, 0) AS forward_bandwidth_mhz,
+            IF(l.satellite IS NOT NULL, 100, 0) AS return_bandwidth_mhz,
+            IF(l.satellite_2 IS NOT NULL, 100, 0) AS forward_bandwidth_mhz_2,
+            IF(l.satellite_2 IS NOT NULL, 100, 0) AS return_bandwidth_mhz_2,
+            IF(l.satellite_3 IS NOT NULL, 100, 0) AS forward_bandwidth_mhz_3,
+            IF(l.satellite_3 IS NOT NULL, 100, 0) AS return_bandwidth_mhz_3,
+            IF(l.satellite_4 IS NOT NULL, 100, 0) AS forward_bandwidth_mhz_4,
+            IF(l.satellite_4 IS NOT NULL, 100, 0) AS return_bandwidth_mhz_4,
             CONCAT(
                 'GX Leases capacity charges ',
                 FORMAT_DATE('%b %Y', DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH))
@@ -93,7 +93,9 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.gx_capacity_cha
             LEAST(LAST_DAY(CURRENT_DATE(), MONTH), DATE(l.end_date_of_current_lease))
                 AS lease_end_date_calculation,
             IF(l.wholesale_invoice_id = '60006791', l.customer_name, l.wholesale_invoice_id)
-                AS customer
+                AS customer,
+            DATE_DIFF(LAST_DAY(CURRENT_DATE(), MONTH), DATE_TRUNC(CURRENT_DATE(), MONTH), DAY) + 1
+                AS days_in_current_month
         FROM
             lease_invoice_data AS l
         WHERE
@@ -124,17 +126,11 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.gx_capacity_cha
                 COALESCE(leasing_request_lease_customer_name, ''), '-',
                 COALESCE(wholesale_sap_account_code, '')
             ) AS text,
-            DATE_DIFF(lease_start_date_calculation, lease_end_date_calculation, MONTH)
+            (DATE_DIFF(lease_end_date_calculation, lease_start_date_calculation, DAY) + 1) / days_in_current_month
                 AS months_active,
             (
-                COALESCE(forward_bandwidth_mhz, 0)
-                + COALESCE(forward_bandwidth_mhz_2, 0)
-                + COALESCE(forward_bandwidth_mhz_3, 0)
-                + COALESCE(forward_bandwidth_mhz_4, 0)
-                + COALESCE(return_bandwidth_mhz, 0)
-                + COALESCE(return_bandwidth_mhz_2, 0)
-                + COALESCE(return_bandwidth_mhz_3, 0)
-                + COALESCE(return_bandwidth_mhz_4, 0)
+                forward_bandwidth_mhz + forward_bandwidth_mhz_2 + forward_bandwidth_mhz_3 + forward_bandwidth_mhz_4
+                + return_bandwidth_mhz + return_bandwidth_mhz_2 + return_bandwidth_mhz_3 + return_bandwidth_mhz_4
             ) * 1283 AS total_cost
         FROM
             gx_capacity_charge_base
