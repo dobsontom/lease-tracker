@@ -2,7 +2,6 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
     WITH lease_call_off_block_data AS (
         SELECT
             lr.id,
-            cob.any_other_technical_details_required_cob_c,
             lr.approval_document_id_c,
             lr.business_unit_c,
             lr.name AS end_customer,
@@ -25,6 +24,7 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
             cob.wholesale_contract_value_cob_c,
             cob.daily_usage_charge_cob_c,
             cob.daily_usage_charge_retail_c,
+            cob.any_other_technical_details_required_cob_c,
             COALESCE(lr.project_id_c, '') AS project_id,
             DATE(cob.cob_start_date_c) AS start_date,
             DATE(cob.cob_end_date_c) AS end_date,
