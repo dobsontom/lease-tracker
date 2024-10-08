@@ -66,7 +66,7 @@ CREATE OR REPLACE VIEW `inm-iar-data-warehouse-dev.lease_tracker.call_off_tracke
         FROM
             lease_call_off_block_data AS lscob
         LEFT JOIN
-            `inm-iar-data-warehouse-dev.call_off_tracker.call_off_blocks_needing_daily_charge_for_sf_upload` AS chrg
+            `inm-iar-data-warehouse-dev.lease_tracker.call_off_blocks_needing_daily_charge_for_sf_upload` AS chrg
             ON lscob.id = chrg.cob_id
             AND lscob.contract_number_c = chrg.ssp_number
             AND lscob.call_off_block_name = chrg.call_off_block_name
