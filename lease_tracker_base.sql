@@ -1,43 +1,5 @@
 CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_base` AS (
     WITH
-    -- Fetches and formats invoice data from GCP
-    invoice_data AS (
-        SELECT
-            id AS ssp_number,
-            leasing_request_c AS leasing_request,
-            name AS invoice_name,
-            bill_period_end_c AS invoice_bill_period_end,
-            bill_period_start_c AS invoice_bill_period_start,
-            billed_amount_c AS invoice_billed_amount,
-            billing_source_c AS invoice_billing_source,
-            wholesale_credit_rebill_c AS invoice_wholesale_credit_rebill,
-            wholesale_or_retail_c AS invoice_wholesale_or_retail,
-            created_date AS invoice_created_date,
-            COALESCE(invoice_number_c, external_invoice_id_c, internal_invoice_id_c) AS invoice_number,
-            COALESCE(billing_status_c, external_billing_status_c, internal_billing_status_c) AS invoice_billing_status
-        FROM `inm-iar-data-warehouse-dev.sdp_salesforce_src.invoice_c`
-        WHERE is_deleted = FALSE
-    ),
-
-    -- Pivot and concatenation performed to get aggregated retail and
-    -- wholesale invoice numbers for each SSP number
-    invoice_numbers AS (
-        SELECT
-            ssp_number,
-            retail AS retail_invoice_id,
-            wholesale AS wholesale_invoice_id
-        FROM (
-            SELECT
-                ssp_number,
-                invoice_wholesale_or_retail,
-                STRING_AGG(DISTINCT invoice_number, '; ') AS invoice_number
-            FROM invoice_data
-            GROUP BY ssp_number, invoice_wholesale_or_retail
-        ) PIVOT (
-            MAX(invoice_number) FOR invoice_wholesale_or_retail IN ('Retail' AS retail, 'Wholesale' AS wholesale)
-        )
-    ),
-
     -- Replicates and expands upon a calculation performed in Salesforce
     business_unit_formula AS (
         SELECT DISTINCT
@@ -123,6 +85,7 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
             ld.lease_service_type_c AS service_type,
             ld.lease_start_time_c AS lease_start_time,
             ld.lease_type_c AS lease_type,
+            ld.lease_update_status_c AS lease_update_status,
             ld.leasing_cc_emails_c AS leasing_cc_emails,
             ld.lsp_c AS lsp,
             ld.lspa_contract_no_c AS lspa_contract_no,
@@ -288,13 +251,9 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
                                 END
                         END
             END AS retail_sap_account_code,
-            -- COALESCE()s ensure that the flags in the final SELECT are applied correctly for
-            -- null values. Specifically, null NOT IN ('a', 'b', 'c') evaluates to FALSE, whereas
-            -- we need this to be TRUE. To do this we substitute nulls with empty strings
-            COALESCE(ld.lease_update_status_c, '') AS lease_update_status,
+            COALESCE(ld.wholesale_billing_status_c, '') AS wholesale_billing_status,
             COALESCE(ld.retail_billing_status_c, '') AS retail_billing_status,
             COALESCE(ld.revenue_recognition_c, '') AS revenue_recognition_basis,
-            COALESCE(ld.wholesale_billing_status_c, '') AS wholesale_billing_status,
             CAST(
                 CONCAT(
                     CAST(CAST(ld.lease_start_date_c AS DATE) AS STRING),
@@ -319,6 +278,47 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
         FROM `inm-iar-data-warehouse-dev.sdp_salesforce_src.leasing_request_c` AS ld
         LEFT JOIN business_unit_formula AS bu ON ld.contract_number_c = bu.contract_number_c
         WHERE ld.contract_number_c IS NOT NULL
+    ),
+
+    -- Fetches and formats invoice data from GCP. Performs an inner join to lease data 
+    -- to filter invoices to those in the lease data
+    invoice_data AS (
+        SELECT
+            inv.id AS ssp_number,
+            inv.leasing_request_c AS leasing_request,
+            inv.name AS invoice_name,
+            inv.bill_period_end_c AS invoice_bill_period_end,
+            inv.bill_period_start_c AS invoice_bill_period_start,
+            inv.billed_amount_c AS invoice_billed_amount,
+            inv.billing_source_c AS invoice_billing_source,
+            inv.wholesale_credit_rebill_c AS invoice_wholesale_credit_rebill,
+            inv.wholesale_or_retail_c AS invoice_wholesale_or_retail,
+            inv.created_date AS invoice_created_date,
+            COALESCE(inv.invoice_number_c, inv.external_invoice_id_c, inv.internal_invoice_id_c) AS invoice_number,
+            COALESCE(inv.billing_status_c, inv.external_billing_status_c, inv.internal_billing_status_c)
+                AS invoice_billing_status
+        FROM `inm-iar-data-warehouse-dev.sdp_salesforce_src.invoice_c` AS inv
+        INNER JOIN lease_data AS ld ON inv.leasing_request_c = ld.id
+        WHERE inv.is_deleted = FALSE
+    ),
+
+    -- Pivot and concatenation performed to get aggregated retail and
+    -- wholesale invoice numbers for each SSP number
+    invoice_numbers AS (
+        SELECT
+            ssp_number,
+            retail AS retail_invoice_id,
+            wholesale AS wholesale_invoice_id
+        FROM (
+            SELECT
+                ssp_number,
+                invoice_wholesale_or_retail,
+                STRING_AGG(DISTINCT invoice_number, '; ') AS invoice_number
+            FROM invoice_data
+            GROUP BY ssp_number, invoice_wholesale_or_retail
+        ) PIVOT (
+            MAX(invoice_number) FOR invoice_wholesale_or_retail IN ('Retail' AS retail, 'Wholesale' AS wholesale)
+        )
     ),
 
     user_data AS (
@@ -364,7 +364,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
                     )
                     AND start_date_of_current_lease <= current_month
                     AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
-                    AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+                    AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL')
+                    THEN 1
                 ELSE 0
             END AS wholesale_external_flag,
             CASE
@@ -377,7 +378,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
                     )
                     AND start_date_of_current_lease <= current_month
                     AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
-                    AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+                    AND CONTAINS_SUBSTR(ssp_number, 'GXL')
+                    THEN 1
                 ELSE 0
             END AS gx_wholesale_external_flag,
             CASE
@@ -390,7 +392,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
                         'Billed', 'Billed - Manually', 'Billed - SV', 'Billing Not Required'
                     )
                     AND start_date_of_current_lease <= current_month
-                    AND NOT CONTAINS_SUBSTR(ssp_number, 'Free') THEN 1
+                    AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
+                    THEN 1
                 ELSE 0
             END AS retail_flag,
             CASE
@@ -403,7 +406,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
                     )
                     AND start_date_of_current_lease <= current_month
                     AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
-                    AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+                    AND NOT CONTAINS_SUBSTR(ssp_number, 'GXL')
+                    THEN 1
                 ELSE 0
             END AS segovia_flag,
             CASE
@@ -416,7 +420,8 @@ CREATE OR REPLACE TABLE `inm-iar-data-warehouse-dev.lease_tracker.lease_tracker_
                     )
                     AND start_date_of_current_lease <= current_month
                     AND NOT CONTAINS_SUBSTR(ssp_number, 'Free')
-                    AND CONTAINS_SUBSTR(ssp_number, 'GXL') THEN 1
+                    AND CONTAINS_SUBSTR(ssp_number, 'GXL')
+                    THEN 1
                 ELSE 0
             END AS gx_segovia_flag
         FROM add_invoice_data
